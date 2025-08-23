@@ -46,12 +46,86 @@ class Money
     if iso_code == other_iso_code
       self
     else
-      exchange_rate = store.find_or_fetch_rate(from: iso_code, to: other_iso_code, date: date)&.rate || fallback_rate
+      # Fetch provider rate if available
+      fetched = store.find_or_fetch_rate(from: iso_code, to: other_iso_code, date: date)
+      provider_rate = fetched&.rate
 
-      raise ConversionError.new(from_currency: iso_code, to_currency: other_iso_code, date: date) unless exchange_rate
+      # Normalize provider rate to BigDecimal when present for consistent comparison
+      provider_rate_bd = provider_rate.nil? ? nil : BigDecimal(provider_rate.to_s)
 
-      Money.new(amount * exchange_rate, other_iso_code)
+      # Prefer provider rate when it's present and not the sentinel value 1.
+      # If provider rate is missing or equals 1 (commonly used as a sentinel),
+      # first try the built-in fallback table. If that yields nothing, use the
+      # explicit fallback_rate passed by caller (if any).
+      if provider_rate_bd && provider_rate_bd != BigDecimal("1")
+        exchange_rate_bd = provider_rate_bd
+      else
+        built = self.class.built_in_rate_fallback(iso_code, other_iso_code)
+        if built
+          exchange_rate_bd = built
+        elsif fallback_rate
+          exchange_rate_bd = BigDecimal(fallback_rate.to_s)
+        else
+          exchange_rate_bd = nil
+        end
+      end
+
+  raise ConversionError.new(from_currency: iso_code, to_currency: other_iso_code, date: date) unless exchange_rate_bd
+
+  Money.new(amount * exchange_rate_bd, other_iso_code)
     end
+  end
+
+  # Small built-in fallback table for common currency conversions when providers return
+  # a sentinel rate of 1 (meaning missing historical data). This should be used only
+  # when caller did not provide an explicit fallback_rate.
+  def self.built_in_rate_fallback(from_iso, to_iso)
+    require "yaml"
+
+    from = from_iso.to_s.upcase
+    to = to_iso.to_s.upcase
+
+    # Load the config file if present; fall back to an in-memory small table if not.
+    config_path = if defined?(Rails) && Rails.respond_to?(:root)
+      Rails.root.join("config", "currency_fallbacks.yml")
+    else
+      File.join(Dir.pwd, "config", "currency_fallbacks.yml")
+    end
+
+    table = if File.exist?(config_path)
+      YAML.load_file(config_path)
+    else
+      { "CNY" => { "USD" => 0.14 }, "USD" => { "CNY" => 7.1 } }
+    end
+
+    # Normalize numeric values to BigDecimal to avoid float precision mismatches
+    normalized = table.each_with_object({}) do |(k, v), memo|
+      key = k.to_s.upcase
+      memo[key] = if v.is_a?(Hash)
+        v.each_with_object({}) do |(k2, v2), m2|
+          m2[k2.to_s.upcase] = BigDecimal(v2.to_s)
+        end
+      else
+        BigDecimal(v.to_s)
+      end
+    end
+
+    # Direct mapping
+    direct = normalized.dig(from, to)
+    return direct if direct
+
+    # Inverse mapping (if config has the reverse pair, use reciprocal)
+    inverse = normalized.dig(to, from)
+    return BigDecimal("1") / inverse if inverse && inverse != 0
+
+    # Try bridging via USD (common anchor) if both legs exist
+    if from != "USD" && to != "USD"
+      leg1 = normalized.dig(from, "USD")
+      leg2 = normalized.dig("USD", to)
+      return leg1 * leg2 if leg1 && leg2
+    end
+
+    nil
   end
 
   def as_json

@@ -96,12 +96,27 @@ class MoneyTest < ActiveSupport::TestCase
     assert_equal Money.new(1000).exchange_to(:eur), Money.new(1000 * 1.2, :eur)
   end
 
+  test "uses built-in fallback when provider returns 1 for different currencies" do
+    # Default Money currency is USD; simulate provider returning 1 (sentinel)
+    ExchangeRate.expects(:find_or_fetch_rate).returns(OpenStruct.new(rate: 1))
+
+    # Expect built-in USD -> CNY fallback of 7.1 to be used
+    assert_equal Money.new(1000).exchange_to(:cny), Money.new(1000 * 7.1, :cny)
+  end
+
   test "raises when no conversion rate available and no fallback rate provided" do
     ExchangeRate.expects(:find_or_fetch_rate).returns(nil)
 
     assert_raises Money::ConversionError do
       Money.new(1000).exchange_to(:jpy)
     end
+  end
+
+  test "uses fallback_rate when built-in missing and provider returns sentinel" do
+    # Provider returns sentinel 1; config has no USD->JPY mapping, so fallback_rate should be used
+    ExchangeRate.expects(:find_or_fetch_rate).returns(OpenStruct.new(rate: 1))
+
+    assert_equal Money.new(1000, :jpy), Money.new(1000).exchange_to(:jpy, fallback_rate: 1.0)
   end
 
   test "converts currency with a fallback rate" do

@@ -56,7 +56,7 @@ class Account::OpeningBalanceManager
 
     def default_date
       if oldest_entry_date
-        [ oldest_entry_date - 1.day, 2.years.ago.to_date ].min
+        [ oldest_entry_date - 1.day, 2.years.ago.to_date ].max
       else
         2.years.ago.to_date
       end

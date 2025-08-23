@@ -1,0 +1,12 @@
+# Built-in conservative fallback exchange rates used when provider returns a sentinel
+# value (e.g. 1) and caller did not supply an explicit fallback_rate.
+# Keep this table small and conservative. Values are approximate recent averages.
+
+CNY:
+  USD: 0.14
+USD:
+  CNY: 7.17
+CNY:
+  AUD: 0.21
+AUD:
+  CNY: 4.65

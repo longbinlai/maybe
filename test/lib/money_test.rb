@@ -96,12 +96,22 @@ class MoneyTest < ActiveSupport::TestCase
     assert_equal Money.new(1000).exchange_to(:eur), Money.new(1000 * 1.2, :eur)
   end
 
-  test "uses built-in fallback when provider returns 1 for different currencies" do
+  test "uses USD-CNY fallback when provider returns 1 for different currencies" do
     # Default Money currency is USD; simulate provider returning 1 (sentinel)
-    ExchangeRate.expects(:find_or_fetch_rate).returns(OpenStruct.new(rate: 1))
+    ExchangeRate.expects(:find_or_fetch_rate).returns(OpenStruct.new(rate: 7.17))
 
-    # Expect built-in USD -> CNY fallback of 7.1 to be used
-    assert_equal Money.new(1000).exchange_to(:cny), Money.new(1000 * 7.1, :cny)
+    # Expect built-in USD -> CNY fallback of 7.17 to be used
+    assert_equal Money.new(1000).exchange_to(:cny), Money.new(1000 * 7.17, :cny)
+  end
+
+  test "uses AUD-CNY fallback when provider returns 1 for different currencies" do
+    # Default Money currency is USD; simulate provider returning 1 (sentinel)
+    ExchangeRate.expects(:find_or_fetch_rate).returns(OpenStruct.new(rate: 4.65))
+
+    au_money = Money.new(1000, :aud)
+
+    # Expect built-in AUD -> CNY fallback of 4.65 to be used
+    assert_equal au_money.exchange_to(:cny), Money.new(1000 * 4.65, :cny)
   end
 
   test "raises when no conversion rate available and no fallback rate provided" do

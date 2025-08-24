@@ -4,9 +4,15 @@
 
 CNY:
   USD: 0.14
+  AUD: 0.21
+  HKD: 1.09
 USD:
   CNY: 7.17
-CNY:
-  AUD: 0.21
+  AUD: 1.56
+  HKD: 7.81
 AUD:
   CNY: 4.65
+  USD: 0.64
+HKD:
+  CNY: 0.92
+  USD: 0.13

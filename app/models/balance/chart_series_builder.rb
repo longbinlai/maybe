@@ -82,6 +82,26 @@ class Balance::ChartSeriesBuilder
       raise
     end
 
+    # Build a SQL CASE expression that maps each account currency to the
+    # built-in fallback rate for converting to the target currency. This
+    # ensures that when there is no entry in exchange_rates for a given
+    # account/date, we use the configured fallback (from
+    # config/currency_fallbacks.yml via Money.built_in_rate_fallback) rather
+    # than defaulting to 1.0 which incorrectly skews chart values.
+    def fallback_case_sql
+      currencies = Account.where(id: account_ids).distinct.pluck(:currency)
+
+      return '1' if currencies.blank?
+
+      cases = currencies.map do |cur|
+        # Use built_in_rate_fallback which returns a BigDecimal
+        rate = Money.built_in_rate_fallback(cur, currency) || 1
+        "WHEN '#{cur}' THEN #{rate.to_f}"
+      end.join(" ")
+
+      "(CASE accounts.currency #{cases} ELSE 1 END)"
+    end
+
     # Since the query aggregates the *net* of assets - liabilities, this means that if we're looking at
     # a single liability account, we'll get a negative set of values.  This is not what the user expects
     # to see.  When favorable direction is "down" (i.e. liability, decrease is "good"), we need to invert
@@ -100,23 +120,23 @@ class Balance::ChartSeriesBuilder
         SELECT
           d.date,
           -- Use flows_factor: already handles asset (+1) vs liability (-1)
-          COALESCE(SUM(last_bal.end_balance * last_bal.flows_factor * COALESCE(er.rate, 1) * :sign_multiplier::integer), 0) AS end_balance,
-          COALESCE(SUM(last_bal.end_cash_balance * last_bal.flows_factor * COALESCE(er.rate, 1) * :sign_multiplier::integer), 0) AS end_cash_balance,
+          COALESCE(SUM(last_bal.end_balance * last_bal.flows_factor * COALESCE(er.rate, #{fallback_case_sql}) * :sign_multiplier::integer), 0) AS end_balance,
+          COALESCE(SUM(last_bal.end_cash_balance * last_bal.flows_factor * COALESCE(er.rate, #{fallback_case_sql}) * :sign_multiplier::integer), 0) AS end_cash_balance,
           -- Holdings only for assets (flows_factor = 1)
           COALESCE(SUM(
             CASE WHEN last_bal.flows_factor = 1
               THEN last_bal.end_non_cash_balance
               ELSE 0
-            END * COALESCE(er.rate, 1) * :sign_multiplier::integer
+            END * COALESCE(er.rate, #{fallback_case_sql}) * :sign_multiplier::integer
           ), 0) AS end_holdings_balance,
           -- Previous balances
-          COALESCE(SUM(last_bal.start_balance * last_bal.flows_factor * COALESCE(er.rate, 1) * :sign_multiplier::integer), 0) AS start_balance,
-          COALESCE(SUM(last_bal.start_cash_balance * last_bal.flows_factor * COALESCE(er.rate, 1) * :sign_multiplier::integer), 0) AS start_cash_balance,
+          COALESCE(SUM(last_bal.start_balance * last_bal.flows_factor * COALESCE(er.rate, #{fallback_case_sql}) * :sign_multiplier::integer), 0) AS start_balance,
+          COALESCE(SUM(last_bal.start_cash_balance * last_bal.flows_factor * COALESCE(er.rate, #{fallback_case_sql}) * :sign_multiplier::integer), 0) AS start_cash_balance,
           COALESCE(SUM(
             CASE WHEN last_bal.flows_factor = 1
               THEN last_bal.start_non_cash_balance
               ELSE 0
-            END * COALESCE(er.rate, 1) * :sign_multiplier::integer
+            END * COALESCE(er.rate, #{fallback_case_sql}) * :sign_multiplier::integer
           ), 0) AS start_holdings_balance
         FROM dates d
         CROSS JOIN accounts

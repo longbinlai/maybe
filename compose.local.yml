@@ -17,6 +17,13 @@ x-rails-env: &rails_env
   DB_PORT: 5432
   REDIS_URL: redis://redis:6379/1
   OPENAI_ACCESS_TOKEN: ${OPENAI_ACCESS_TOKEN}
+  # Set to "true" to use standard OpenAI API instead of custom endpoint
+  OPENAI_USE_STANDARD: ${OPENAI_USE_STANDARD:-false}
+  # Optional: custom API base for OpenAI-compatible providers (e.g. Bailian)
+  # Example: https://bailian.api.aliyun.com
+  OPENAI_API_BASE: ${OPENAI_API_BASE:-}
+  # Optional: comma-separated list of allowed models (default: gpt-5.1-mini)
+  OPENAI_MODELS: ${OPENAI_MODELS:-gpt-5-mini}
 
 services:
   web:

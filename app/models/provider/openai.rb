@@ -4,10 +4,19 @@ class Provider::Openai < Provider
   # Subclass so errors caught in this provider are raised as Provider::Openai::Error
   Error = Class.new(Provider::Error)
 
-  MODELS = %w[gpt-4.1]
+  # Allow configuring allowed/default models via env (comma-separated).
+  # Example: OPENAI_MODELS="gpt-5-mini,bailian-gpt-1"
+  MODELS = ENV.fetch("OPENAI_MODELS", "gpt-5-mini").split(",").map(&:strip)
 
   def initialize(access_token)
-    @client = ::OpenAI::Client.new(access_token: access_token)
+    api_base = ENV["OPENAI_API_BASE"].presence
+
+    # Try to pass api base into the client constructor when configured.
+    if api_base.present?
+      @client = ::OpenAI::Client.new(access_token: access_token, uri_base: api_base)
+    else
+      @client = ::OpenAI::Client.new(access_token: access_token)
+    end
   end
 
   def supports_model?(model)

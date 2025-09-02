@@ -5,7 +5,7 @@ http_interactions:
     uri: https://api.openai.com/v1/responses
     body:
       encoding: UTF-8
-      string: '{"model":"gpt-4.1-mini","input":[{"role":"developer","content":"Here
+      string: '{"model":"gpt-5-mini","input":[{"role":"developer","content":"Here
         are the user''s available merchants in JSON format:\n\n```json\n[{\"name\":\"Shooters\"}]\n```\n\nUse
         BOTH your knowledge AND the user-generated merchants to auto-detect the following
         transactions:\n\n```json\n[{\"id\":\"1\",\"name\":\"McDonalds\",\"amount\":20,\"classification\":\"expense\"},{\"id\":\"2\",\"name\":\"local
@@ -97,7 +97,7 @@ http_interactions:
           "incomplete_details": null,
           "instructions": "You are an assistant to a consumer personal finance app.\n\nClosely follow ALL the rules below while auto-detecting business names and website URLs:\n\n- Return 1 result per transaction\n- Correlate each transaction by ID (transaction_id)\n- Do not include the subdomain in the business_url (i.e. \"amazon.com\" not \"www.amazon.com\")\n- User merchants are considered \"manual\" user-generated merchants and should only be used in 100% clear cases\n- Be slightly pessimistic.  We favor returning \"null\" over returning a false positive.\n- NEVER return a name or URL for generic transaction names (e.g. \"Paycheck\", \"Laundromat\", \"Grocery store\", \"Local diner\")\n\nDetermining a value:\n\n- First attempt to determine the name + URL from your knowledge of global businesses\n- If no certain match, attempt to match one of the user-provided merchants\n- If no match, return \"null\"\n\nExample 1 (known business):\n\n```\nTransaction name: \"Some Amazon purchases\"\n\nResult:\n- business_name: \"Amazon\"\n- business_url: \"amazon.com\"\n```\n\nExample 2 (generic business):\n\n```\nTransaction name: \"local diner\"\n\nResult:\n- business_name: null\n- business_url: null\n```\n",
           "max_output_tokens": null,
-          "model": "gpt-4.1-mini-2025-04-14",
+          "model": "gpt-5-mini-2025-04-14",
           "output": [
             {
               "id": "msg_67ffcfbc58bc8192bbcf4dc54759837c04d20b39fa51ef90",

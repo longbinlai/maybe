@@ -65,7 +65,12 @@ class Provider::Registry
 
         return nil unless access_token.present?
 
-        Provider::Openai.new(access_token)
+        # Use standard OpenAI if OPENAI_USE_STANDARD is set to true
+        if ENV["OPENAI_USE_STANDARD"] == "true"
+          Provider::OpenaiStandard.new(access_token)
+        else
+          Provider::Openai.new(access_token)
+        end
       end
   end
 

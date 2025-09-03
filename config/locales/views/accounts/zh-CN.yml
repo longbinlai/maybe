@@ -42,13 +42,16 @@ zh-CN:
       activity:
         amount: 金额
         balance: 余额
+        balance_tooltip: 当日结束余额，包含所有交易和调整后的金额
         date: 日期
         entries: 条记录
         entry: 条记录
         new: 新建
         new_balance: 新建余额
         new_transaction: 新建交易
+        no_balance_data: 该日期无可用余额数据
         no_entries: 未找到记录
+        search_placeholder: 按名称搜索记录
         title: 活动
       chart:
         balance: 余额

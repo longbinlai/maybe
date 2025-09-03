@@ -1,6 +1,27 @@
 ---
 en:
   shared:
+    breadcrumbs:
+      home: "Home"
+      pages: "Dashboard"
+      dashboard: "Dashboard"
+      transactions: "Transactions"
+      accounts: "Accounts"
+      budgets: "Budgets"
+      categories: "Categories"
+      investments: "Investments"
+      reports: "Reports"
+      settings: "Settings"
+      tags: "Tags"
+      merchants: "Merchants"
+      family_merchants: "Merchants"
+      transfers: "Transfers"
+      imports: "Imports"
+      holdings: "Holdings"
+      trades: "Trades"
+      valuations: "Valuations"
+      chats: "Chat"
+      family_exports: "Exports"
     confirm_modal:
       accept: Confirm
       body_html: "<p>You will not be able to undo this decision</p>"
@@ -12,3 +33,7 @@ en:
       syncing: Syncing accounts data...
     trend_change:
       no_change: "no change"
+    transaction_tabs:
+      expense: Expense
+      income: Income
+      transfer: Transfer

@@ -1,0 +1,12 @@
+---
+zh-CN:
+  users:
+    destroy:
+      success: 您的账户已被删除。
+    update:
+      email_change_failed: 更改电子邮件地址失败。
+      email_change_initiated: 请检查您的新电子邮件地址以获取确认说明。
+      success: 您的个人资料已更新。
+    reset:
+      success: 您的账户已重置。数据将在一段时间后在后台删除。
+      unauthorized: 您无权执行此操作

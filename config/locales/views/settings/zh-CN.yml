@@ -1,0 +1,94 @@
+---
+zh-CN:
+  settings:
+    billings:
+      show:
+        page_title: 账单
+        subscription_subtitle: 更新您的订阅和账单详情
+        subscription_title: 管理订阅
+    preferences:
+      show:
+        country: 国家
+        currency: 货币
+        date_format: 日期格式
+        general_subtitle: 配置您的偏好设置
+        general_title: 通用
+        default_period: 默认时间段
+        language: 语言
+        page_title: 偏好设置
+        theme_dark: 深色
+        theme_light: 浅色
+        theme_subtitle: 为应用选择首选主题
+        theme_system: 系统
+        theme_title: 主题
+        timezone: 时区
+    profiles:
+      destroy:
+        cannot_remove_self: 您无法移除自己的账户。
+        member_removal_failed: 移除成员时出现问题。
+        member_removed: 成员已成功移除。
+        not_authorized: 您无权移除成员。
+      show:
+        confirm_delete:
+          body: 您确定要永久删除您的账户吗？此操作不可逆转。
+          title: 删除账户？
+        confirm_reset:
+          body: 您确定要重置您的账户吗？这将删除您所有的账户、分类、商户、标签和其他数据。此操作无法撤销。
+          title: 重置账户？
+        confirm_remove_invitation:
+          body: 您确定要移除 %{email} 的邀请吗？
+          title: 移除邀请
+        confirm_remove_member:
+          body: 您确定要从您的账户中移除 %{name} 吗？
+          title: 移除成员
+        danger_zone_title: 危险区域
+        delete_account: 删除账户
+        delete_account_warning: 删除您的账户将永久移除您的所有数据且无法撤销。
+        reset_account: 重置账户
+        reset_account_warning: 重置您的账户将删除您所有的账户、分类、商户、标签和其他数据，但保留您的用户账户。
+        email: 邮箱
+        first_name: 名字
+        household_form_input_placeholder: 输入家庭名称
+        household_form_label: 家庭名称
+        household_subtitle: 邀请家庭成员、伙伴和其他个人。受邀者可以登录您的家庭并访问您的共享账户。
+        household_title: 家庭
+        invitation_link: 邀请链接
+        invite_member: 添加成员
+        last_name: 姓氏
+        page_title: 账户
+        pending: 待处理
+        profile_subtitle: 自定义您在Maybe上的显示方式
+        profile_title: 个人资料
+        remove_invitation: 移除邀请
+        remove_member: 移除成员
+        save: 保存
+    securities:
+      show:
+        page_title: 安全
+    settings_nav:
+      accounts_label: 账户
+      api_key_label: API密钥
+      billing_label: 账单
+      categories_label: 分类
+      feedback_label: 反馈
+      general_section_title: 通用
+      imports_label: 导入
+      logout: 退出登录
+      merchants_label: 商户
+      other_section_title: 更多
+      preferences_label: 偏好设置
+      profile_label: 账户
+      rules_label: 规则
+      security_label: 安全
+      self_hosting_label: 自托管
+      tags_label: 标签
+      transactions_section_title: 交易
+      whats_new_label: 更新内容
+    settings_nav_link_large:
+      next: 下一步
+      previous: 返回
+    user_avatar_field:
+      accepted_formats: JPG或PNG格式。最大5MB。
+      choose: 上传照片
+      choose_label: (可选)
+      change: 更换照片

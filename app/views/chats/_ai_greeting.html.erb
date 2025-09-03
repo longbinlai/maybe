@@ -2,27 +2,33 @@
   <%= render "chats/ai_avatar" %>
 
   <div class="max-w-[85%] text-sm space-y-4 text-primary">
-    <p>Hey <%= Current.user&.first_name || "there" %>! I'm an AI built by Maybe to help with your finances. I have access to the web and your account data.</p>
+    <p>
+      <% if Current.user&.first_name.present? %>
+        <%= t("chats.ai_greeting.welcome", name: Current.user.first_name) %>
+      <% else %>
+        <%= t("chats.ai_greeting.welcome_anonymous") %>
+      <% end %>
+    </p>
 
     <p>
-      You can use <span class="bg-container border border-secondary px-1.5 py-0.5 rounded font-mono text-xs">/</span> to access commands
+      <%= t("chats.ai_greeting.commands_help") %> <span class="bg-container border border-secondary px-1.5 py-0.5 rounded font-mono text-xs">/</span>
     </p>
 
     <div class="space-y-3">
-      <p>Here's a few questions you can ask:</p>
+      <p><%= t("chats.ai_greeting.sample_questions") %></p>
 
       <% questions = [
         {
           icon: "chart-area",
-          text: "Evaluate investment portfolio"
+          text: t("chats.ai_greeting.questions.evaluate_portfolio")
         },
         {
           icon: "wallet-minimal",
-          text: "Show spending insights"
+          text: t("chats.ai_greeting.questions.spending_insights")
         },
         {
           icon: "alert-triangle",
-          text: "Find unusual patterns"
+          text: t("chats.ai_greeting.questions.unusual_patterns")
         }
       ] %>
 

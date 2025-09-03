@@ -1,0 +1,7 @@
+---
+zh-CN:
+  messages:
+    chat_form:
+      placeholder: "询问任何问题..."
+      disclaimer: "AI回复仅供参考，不构成财务建议。"
+      coming_soon: "即将推出"

@@ -1,0 +1,34 @@
+---
+zh-CN:
+  settings:
+    hostings:
+      invite_code_settings:
+        description: 每个加入您的Maybe实例的新用户只能通过邀请码进行注册
+        email_confirmation_description: 启用后，用户在更改电子邮件地址时必须确认其电子邮件地址。
+        email_confirmation_title: 需要电子邮件确认
+        generate_tokens: 生成新邀请码
+        generated_tokens: 已生成的邀请码
+        title: 注册需要邀请码
+      show:
+        general: 常规设置
+        invites: 邀请码
+        title: 自主托管
+        danger_zone: 危险区域
+        clear_cache: 清除数据缓存
+        clear_cache_warning: 清除数据缓存将删除所有汇率、证券价格、账户余额和其他数据。这不会删除账户、交易记录、分类或其他用户拥有的数据。
+        confirm_clear_cache:
+          title: 清除数据缓存？
+          body: 您确定要清除数据缓存吗？这将删除所有汇率、证券价格、账户余额和其他数据。此操作无法撤销。
+      synth_settings:
+        api_calls_used: "已使用%{used} / %{limit}次API调用（%{percentage}）"
+        description: 输入Synth提供的API密钥
+        label: API密钥
+        placeholder: 在此输入您的API密钥
+        plan: "%{plan}计划"
+        title: Synth设置
+      update:
+        failure: 设置值无效
+        success: 设置已更新
+      clear_cache:
+        cache_cleared: 数据缓存已清除。这可能需要几分钟才能完成。
+      not_authorized: 您无权执行此操作

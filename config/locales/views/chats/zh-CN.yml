@@ -1,0 +1,37 @@
+---
+zh-CN:
+  chats:
+    index:
+      title: "聊天记录"
+      new_chat: "新聊天"
+    ai_greeting:
+      welcome: "你好 %{name}！我是LAI开发的AI助手，专门帮助您管理财务。我可以访问网络和您的账户数据。"
+      welcome_anonymous: "你好！我是LAI开发的AI助手，专门帮助您管理财务。我可以访问网络和您的账户数据。"
+      commands_help: "您可以使用命令来快速操作"
+      sample_questions: "以下是一些您可以询问的问题："
+      questions:
+        evaluate_portfolio: "评估投资组合"
+        spending_insights: "显示支出洞察"
+        unusual_patterns: "查找异常模式"
+    nav:
+      all_chats: "所有聊天"
+      start_new_chat: "开始新聊天"
+      edit_chat_title: "编辑聊天标题"
+      delete_chat: "删除聊天"
+    ai_consent:
+      title: "启用LAI"
+      description_available: "LAI可以回答财务问题并基于您的数据提供洞察。要使用此功能，您需要明确启用它。"
+      description_unavailable: "要使用LAI助手，您需要在自托管实例中设置环境变量。"
+      enable_button: "启用LAI"
+      disclaimer: "随时可以禁用。发送给我们LLM提供商的所有数据都经过匿名化处理。"
+    chat_title:
+      new_chat: "新聊天"
+    chat_item:
+      ago: "前"
+      edit_title: "编辑聊天标题"
+      delete: "删除聊天"
+    error:
+      failed_response: "生成回复失败。请重试。"
+      retry: "重试"
+    thinking_indicator:
+      thinking: "思考中..."

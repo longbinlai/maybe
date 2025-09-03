@@ -1,0 +1,10 @@
+---
+zh-CN:
+  settings:
+    securities:
+      show:
+        disable_mfa: 禁用双重认证
+        disable_mfa_confirm: 您确定要禁用双重认证吗？这将使您的账户安全性降低。
+        enable_mfa: 启用双重认证
+        mfa_description: 通过要求在登录时输入来自身份验证应用的验证码，为您的账户增加额外的安全层
+        mfa_title: 双重认证

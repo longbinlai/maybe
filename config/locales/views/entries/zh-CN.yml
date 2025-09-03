@@ -1,0 +1,14 @@
+---
+zh-CN:
+  entries:
+    create:
+      success: 记录已创建
+    destroy:
+      success: 记录已删除
+    empty:
+      description: 尝试添加记录、编辑筛选器或细化您的搜索
+      title: 未找到记录
+    loading:
+      loading: 正在加载记录...
+    update:
+      success: 记录已更新

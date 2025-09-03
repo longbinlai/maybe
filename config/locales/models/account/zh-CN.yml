@@ -1,0 +1,95 @@
+---
+zh-CN:
+  activerecord:
+    attributes:
+      account:
+        balance: 余额
+        currency: 货币
+        family: 家庭
+        family_id: 家庭
+        name: 名称
+        subtype: 子类型
+      investment:
+        subtypes:
+          brokerage:
+            short: 券商
+            long: 证券账户
+          pension:
+            short: 养老金
+            long: 养老金账户
+          retirement:
+            short: 退休金
+            long: 退休储蓄账户
+          401k:
+            short: 企业年金
+            long: 企业年金账户(401k)
+          roth_401k:
+            short: 税后年金
+            long: 税后企业年金(Roth 401k)
+          529_plan:
+            short: 教育基金
+            long: 教育储蓄计划(529)
+          hsa:
+            short: 医疗储蓄
+            long: 健康储蓄账户
+          mutual_fund:
+            short: 基金
+            long: 共同基金
+          ira:
+            short: 个人退休金
+            long: 个人退休账户(IRA)
+          roth_ira:
+            short: 税后退休金
+            long: 税后个人退休账户(Roth IRA)
+          angel:
+            short: 天使投资
+            long: 天使投资
+      depository:
+        subtypes:
+          checking:
+            short: 活期
+            long: 活期存款账户
+          savings:
+            short: 储蓄
+            long: 储蓄存款账户
+          hsa:
+            short: 医疗储蓄
+            long: 健康储蓄账户
+          cd:
+            short: 定期存款
+            long: 定期存款账户
+          money_market:
+            short: 货币基金
+            long: 货币市场基金账户
+      property:
+        subtypes:
+          single_family_home:
+            short: 独栋住宅
+            long: 独户住宅
+          multi_family_home:
+            short: 多户住宅
+            long: 多户住宅
+          condominium:
+            short: 公寓
+            long: 共有产权公寓
+          townhouse:
+            short: 联排别墅
+            long: 联排别墅
+          investment_property:
+            short: 投资房产
+            long: 投资性房地产
+          second_home:
+            short: 第二居所
+            long: 第二住房
+    models:
+      account: 账户
+      account/credit: 信用卡
+      account/credit_card: 信用卡
+      account/depository: 银行存款
+      account/investment: 投资理财
+      account/loan: 贷款
+      account/other_asset: 其他资产
+      account/other_liability: 其他负债
+      account/property: 房地产
+      account/vehicle: 车辆资产
+      account/crypto: 数字货币

@@ -1,0 +1,57 @@
+---
+zh-CN:
+  finance:
+    terms:
+      # 账户类型
+      cash: 现金
+      checking: 活期存款
+      savings: 储蓄存款
+      investment: 投资账户
+      retirement: 退休金账户
+      pension: 养老金
+      brokerage: 证券账户
+      mutual_fund: 基金
+      etf: 交易所交易基金
+      stock: 股票
+      bond: 债券
+      crypto: 加密货币
+      bitcoin: 比特币
+      real_estate: 房地产
+      property: 房产
+      vehicle: 车辆
+      loan: 贷款
+      mortgage: 房贷
+      credit_card: 信用卡
+      
+      # 金融术语
+      balance: 余额
+      principal: 本金
+      interest: 利息
+      dividend: 股息
+      capital_gains: 资本收益
+      net_worth: 净资产
+      assets: 资产
+      liabilities: 负债
+      equity: 权益
+      portfolio: 投资组合
+      diversification: 分散投资
+      risk: 风险
+      return: 收益
+      yield: 收益率
+      
+      # 交易术语
+      buy: 买入
+      sell: 卖出
+      deposit: 存款
+      withdrawal: 取款
+      transfer: 转账
+      payment: 付款
+      fee: 费用
+      commission: 佣金
+      
+      # 时间相关
+      monthly: 每月
+      quarterly: 每季度
+      annually: 每年
+      maturity: 到期
+      term: 期限

@@ -1,0 +1,13 @@
+---
+zh-CN:
+  activemodel:
+    errors:
+      models:
+        trend:
+          attributes:
+            current:
+              must_be_of_the_same_type_as_previous: 必须与前一个值的类型相同
+              must_be_of_type_money_numeric_or_nil: 必须是货币、数字或nil类型
+            previous:
+              must_be_of_the_same_type_as_current: 必须与当前值的类型相同
+              must_be_of_type_money_numeric_or_nil: 必须是货币、数字或nil类型

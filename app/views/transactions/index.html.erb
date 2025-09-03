@@ -1,6 +1,6 @@
 <div class="space-y-4 pb-20 flex flex-col">
   <header class="flex justify-between items-center text-primary font-medium">
-    <h1 class="text-xl">Transactions</h1>
+    <h1 class="text-xl"><%= t(".title") %></h1>
     <div class="flex items-center gap-5">
       <div class="flex items-center gap-2">
         <%= render DS::Menu.new do |menu| %>
@@ -24,7 +24,7 @@
         </div>
 
         <%= render DS::Link.new(
-            text: "New transaction",
+            text: t(".new_transaction"),
             icon: "plus",
             variant: "primary",
             href: new_transaction_path,
@@ -63,11 +63,11 @@
             <%= check_box_tag "selection_entry",
                               class: "checkbox checkbox--light",
                               data: { action: "bulk-select#togglePageSelection" } %>
-            <p>transaction</p>
+            <p><%= t(".transaction") %></p>
           </div>
 
-          <p class="col-span-2">category</p>
-          <p class="col-span-2 justify-self-end">amount</p>
+          <p class="col-span-2"><%= t("transactions.form.category") %></p>
+          <p class="col-span-2 justify-self-end"><%= t("transactions.form.amount") %></p>
         </div>
 
         <% if @transactions.any? %>
@@ -75,7 +75,7 @@
             <%= check_box_tag "selection_entry",
                               class: "checkbox checkbox--light mr-2 ml-1",
                               data: { action: "bulk-select#togglePageSelection" } %>
-            <span>TRANSACTION</span>
+            <span><%= t(".transaction").upcase %></span>
           </div>
         <% end %>
 

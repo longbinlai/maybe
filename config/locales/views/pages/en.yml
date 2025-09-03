@@ -4,6 +4,8 @@ en:
     changelog:
       title: What's new
     dashboard:
+      new_button: "New"
+      finance_overview: "Here's your financial overview"
       net_worth_chart:
         data_not_available: Data not available for the selected period
         title: Net Worth

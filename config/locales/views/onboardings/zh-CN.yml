@@ -1,0 +1,27 @@
+---
+zh-CN:
+  onboardings:
+    header:
+      sign_out: 退出登录
+    preferences:
+      currency: 货币
+      date_format: 日期格式
+      example: 示例账户
+      locale: 语言
+      preview: 基于偏好设置预览数据显示方式。
+      submit: 完成
+      subtitle: 让我们配置您的偏好设置。
+      title: 配置您的偏好设置
+    profile:
+      country: 国家
+      first_name: 名字
+      household_name: 家庭名称
+      last_name: 姓氏
+      profile_image: 头像
+      submit: 继续
+      subtitle: 让我们完善您的个人资料。
+      title: 让我们设置基本信息
+    show:
+      message: 很高兴见到您。在下一步中，我们将询问您几个问题来完善您的个人资料，然后为您完成所有设置。
+      setup: 设置账户
+      title: 认识Maybe

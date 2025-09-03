@@ -24,7 +24,7 @@ class PagesController < ApplicationController
 
     @cashflow_sankey_data = build_cashflow_sankey_data(income_totals, expense_totals, family_currency)
 
-    @breadcrumbs = [ [ "Home", root_path ], [ "Dashboard", nil ] ]
+    @breadcrumbs = [ [ t("shared.breadcrumbs.home"), root_path ], [ t("shared.breadcrumbs.pages"), nil ] ]
   end
 
   def changelog

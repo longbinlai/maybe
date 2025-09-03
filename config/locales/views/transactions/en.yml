@@ -1,6 +1,10 @@
 ---
 en:
   transactions:
+    summary:
+      total_transactions: "Total Transactions"
+      income: "Income"
+      expenses: "Expenses"
     form:
       account: Account
       account_prompt: Select an Account

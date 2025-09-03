@@ -1,0 +1,25 @@
+---
+en:
+  navigation:
+    home: Home
+    dashboard: Dashboard
+    transactions: Transactions
+    budgets: Budgets
+    accounts: Accounts
+    assets: Assets
+    debts: Debts
+    settings: Settings
+    assistant: Assistant
+    reports: Reports
+    categories: Categories
+    merchants: Merchants
+    tags: Tags
+    imports: Imports
+    exports: Exports
+    logout: Logout
+    profile: Profile
+    preferences: Preferences
+    security: Security
+    billing: Billing
+    help: Help
+    feedback: Feedback

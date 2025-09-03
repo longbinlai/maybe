@@ -1,0 +1,29 @@
+---
+zh-CN:
+  period:
+    labels:
+      last_day: 最近一天
+      current_week: 本周
+      last_7_days: 最近7天
+      current_month: 本月
+      last_30_days: 最近30天
+      last_90_days: 最近90天
+      current_year: 今年
+      all_time: 全部时间
+    labels_short:
+      last_day: 1D
+      current_week: WTD
+      last_7_days: 7D
+      current_month: MTD
+      last_30_days: 30D
+      last_90_days: 90D
+      current_year: YTD
+      all_time: 全部
+    comparison_labels:
+      vs_yesterday: 与昨天相比
+      vs_start_of_week: 与周初相比
+      vs_last_week: 与上周相比
+      vs_start_of_month: 与月初相比
+      vs_last_month: 与上月相比
+      vs_last_quarter: 与上季度相比
+      vs_start_of_year: 与年初相比

@@ -1,0 +1,39 @@
+---
+zh-CN:
+  shared:
+    breadcrumbs:
+      home: "首页"
+      pages: "仪表板"
+      dashboard: "仪表板"
+      transactions: "交易记录"
+      accounts: "账户"
+      budgets: "预算"
+      categories: "分类"
+      investments: "投资"
+      reports: "报告"
+      settings: "设置"
+      tags: "标签"
+      merchants: "商户"
+      family_merchants: "商户"
+      transfers: "转账"
+      imports: "导入"
+      holdings: "持仓"
+      trades: "交易"
+      valuations: "估值"
+      chats: "聊天"
+      family_exports: "导出"
+    confirm_modal:
+      accept: 确认
+      body_html: "<p>您将无法撤销此操作</p>"
+      cancel: 取消
+      title: 您确定吗？
+    money_field:
+      label: 金额
+    syncing_notice:
+      syncing: 正在同步账户数据...
+    trend_change:
+      no_change: "无变化"
+    transaction_tabs:
+      expense: 支出
+      income: 收入
+      transfer: 转账

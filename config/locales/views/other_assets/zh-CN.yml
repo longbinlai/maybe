@@ -1,0 +1,7 @@
+---
+zh-CN:
+  other_assets:
+    edit:
+      edit: 编辑 %{account}
+    new:
+      title: 输入资产详情

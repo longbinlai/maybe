@@ -35,7 +35,10 @@ module Accountable
       return nil if subtype.nil?
 
       label_type = format == :long ? :long : :short
-      self::SUBTYPES[subtype]&.fetch(label_type, nil)
+      i18n_key = "activerecord.attributes.#{self.name.underscore}.subtypes.#{subtype}.#{label_type}"
+      default_label = self::SUBTYPES[subtype]&.fetch(label_type, nil)
+      
+      I18n.t(i18n_key, default: default_label)
     end
 
     # Convenience method for getting the short label
@@ -53,7 +56,7 @@ module Accountable
     end
 
     def display_name
-      self.name.pluralize.titleize
+      I18n.t("activerecord.models.account/#{self.name.underscore}", default: self.name.pluralize.titleize)
     end
 
     def balance_money(family)

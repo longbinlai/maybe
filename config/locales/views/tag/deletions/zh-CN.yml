@@ -1,0 +1,13 @@
+---
+zh-CN:
+  tag:
+    deletions:
+      create:
+        deleted: 标签已删除
+      new:
+        delete_and_leave_uncategorized: 删除"%{tag_name}"
+        delete_and_recategorize: 删除"%{tag_name}"并分配新标签
+        delete_tag: 删除标签？
+        explanation: '"%{tag_name}"将从交易记录和其他可标记实体中移除。您也可以在下方分配新标签，而不是将它们保持无标签状态。'
+        replacement_tag_prompt: 选择标签
+        tag: 标签

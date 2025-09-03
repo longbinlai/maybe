@@ -1,0 +1,37 @@
+---
+en:
+  chats:
+    index:
+      title: "Chats"
+      new_chat: "New chat"
+    ai_greeting:
+      welcome: "Hey %{name}! I'm an AI built by LAI to help with your finances. I have access to the web and your account data."
+      welcome_anonymous: "Hey there! I'm an AI built by LAI to help with your finances. I have access to the web and your account data."
+      commands_help: "You can use commands to access features"
+      sample_questions: "Here's a few questions you can ask:"
+      questions:
+        evaluate_portfolio: "Evaluate investment portfolio"
+        spending_insights: "Show spending insights"
+        unusual_patterns: "Find unusual patterns"
+    nav:
+      all_chats: "All chats"
+      start_new_chat: "Start new chat"
+      edit_chat_title: "Edit chat title"
+      delete_chat: "Delete chat"
+    ai_consent:
+      title: "Enable LAI"
+      description_available: "LAI can answer financial questions and provide insights based on your data. To use this feature you'll need to explicitly enable it."
+      description_unavailable: "To use the LAI assistant, you need to set the environment variable in your self-hosted instance."
+      enable_button: "Enable LAI"
+      disclaimer: "Disable anytime. All data sent to our LLM providers is anonymized."
+    chat_title:
+      new_chat: "New chat"
+    chat_item:
+      ago: "ago"
+      edit_title: "Edit chat title"
+      delete: "Delete chat"
+    error:
+      failed_response: "Failed to generate response. Please try again."
+      retry: "Retry"
+    thinking_indicator:
+      thinking: "Thinking ..."

@@ -1,0 +1,9 @@
+---
+zh-CN:
+  email_confirmation_mailer:
+    confirmation_email:
+      body: 您最近请求更改您的电子邮件地址。点击下方按钮确认此更改。
+      cta: 确认电子邮件更改
+      expiry_notice: 此链接将在%{hours}小时后过期。
+      greeting: 您好！
+      subject: 'Maybe: 确认您的电子邮件更改'

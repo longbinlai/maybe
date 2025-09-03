@@ -1,0 +1,15 @@
+---
+zh-CN:
+  sessions:
+    create:
+      invalid_credentials: 邮箱或密码无效。
+    destroy:
+      logout_successful: 您已成功退出登录。
+    new:
+      email: 邮箱地址
+      email_placeholder: you@example.com
+      forgot_password: 忘记密码？
+      password: 密码
+      submit: 登录
+      title: 登录您的账户
+      password_placeholder: 输入您的密码

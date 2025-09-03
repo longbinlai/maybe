@@ -1,0 +1,18 @@
+---
+zh-CN:
+  activerecord:
+    errors:
+      models:
+        transfer:
+          attributes:
+            base:
+              inflow_cannot_be_in_multiple_transfers: 资金流入交易不能同时属于多个转账
+              must_be_from_different_accounts: 转账必须涉及不同的账户
+              must_be_from_same_family: 转账必须来自同一个家庭
+              must_be_within_date_range: 转账交易日期必须在彼此4天内
+              must_have_opposite_amounts: 转账交易必须金额相反
+              must_have_single_currency: 转账必须使用单一货币
+              outflow_cannot_be_in_multiple_transfers: 资金流出交易不能同时属于多个转账
+  transfer:
+    name: 转账至%{to_account}
+    payment_name: 付款至%{to_account}

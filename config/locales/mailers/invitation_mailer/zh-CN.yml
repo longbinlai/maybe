@@ -1,0 +1,5 @@
+---
+zh-CN:
+  invitation_mailer:
+    invite_email:
+      subject: "%{inviter} 邀请您加入他们在Maybe的家庭！"

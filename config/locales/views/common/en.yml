@@ -1,0 +1,81 @@
+---
+en:
+  common:
+    actions:
+      save: Save
+      cancel: Cancel
+      delete: Delete
+      edit: Edit
+      create: Create
+      update: Update
+      confirm: Confirm
+      continue: Continue
+      back: Back
+      next: Next
+      previous: Previous
+      close: Close
+      submit: Submit
+      add: Add
+      remove: Remove
+      select: Select
+      search: Search
+      filter: Filter
+      sort: Sort
+      export: Export
+      import: Import
+      download: Download
+      upload: Upload
+      refresh: Refresh
+      reload: Reload
+      reset: Reset
+      clear: Clear
+      apply: Apply
+      copy: Copy
+      share: Share
+      print: Print
+      help: Help
+      settings: Settings
+      logout: Logout
+      login: Login
+      signup: Sign Up
+      view: View
+      show: Show
+      hide: Hide
+      toggle: Toggle
+    status:
+      loading: Loading...
+      saving: Saving...
+      success: Success
+      error: Error
+      warning: Warning
+      info: Info
+      pending: Pending
+      completed: Completed
+      failed: Failed
+      active: Active
+      inactive: Inactive
+      enabled: Enabled
+      disabled: Disabled
+    messages:
+      no_data: No data available
+      no_results: No results found
+      empty_state: Nothing here yet
+      coming_soon: Coming soon
+      under_construction: Under construction
+      page_not_found: Page not found
+      access_denied: Access denied
+      session_expired: Session expired
+      connection_error: Connection error
+      server_error: Server error
+      try_again: Please try again
+      contact_support: Contact support
+    time:
+      today: Today
+      yesterday: Yesterday
+      tomorrow: Tomorrow
+      this_week: This week
+      last_week: Last week
+      this_month: This month
+      last_month: Last month
+      this_year: This year
+      last_year: Last year

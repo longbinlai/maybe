@@ -1,0 +1,9 @@
+---
+zh-CN:
+  activerecord:
+    errors:
+      models:
+        entry:
+          attributes:
+            base:
+              invalid_sell_quantity: 无法出售 %{ticker} 的 %{sell_qty} 股，因为您只拥有 %{current_qty} 股

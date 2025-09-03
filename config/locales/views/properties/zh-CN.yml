@@ -1,0 +1,32 @@
+---
+zh-CN:
+  properties:
+    edit:
+      edit: 编辑 %{account}
+    form:
+      address_line1: 街道地址
+      address_line1_placeholder: 主街123号
+      area: 居住面积
+      area_placeholder: '200'
+      area_unit: 计量单位
+      country: 国家
+      country_placeholder: 中国
+      locality: 城市
+      locality_placeholder: 北京
+      none: 无
+      postal_code: 邮政编码
+      postal_code_placeholder: '100000'
+      region: 省/直辖市
+      region_placeholder: 北京市
+      subtype_prompt: 选择房产类型
+      year_built: 建造年份
+      year_built_placeholder: '2000'
+    new:
+      title: 输入房产详情
+    overview:
+      living_area: 居住面积
+      market_value: 市场价值
+      purchase_price: 购买价格
+      trend: 趋势
+      unknown: 未知
+      year_built: 建造年份

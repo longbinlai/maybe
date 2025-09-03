@@ -1,0 +1,68 @@
+---
+zh-CN:
+  accounts:
+    account:
+      troubleshoot: 故障排除
+    chart:
+      data_not_available: 所选时间段内无可用数据
+    create:
+      success: "%{type}账户已创建"
+    destroy:
+      success: "%{type}账户已安排删除"
+    empty:
+      empty_message: 通过连接、导入或手动输入的方式添加账户。
+      new_account: 新建账户
+      no_accounts: 暂无账户
+    form:
+      balance: 当前余额
+      name_label: 账户名称
+      name_placeholder: 示例账户名称
+    index:
+      accounts: 账户
+      manual_accounts:
+        other_accounts: 其他账户
+      new_account: 新建账户
+      sync: 全部同步
+    new:
+      import_accounts: 导入账户
+      method_selector:
+        connected_entry: 关联账户
+        connected_entry_eu: 关联欧盟账户
+        manual_entry: 输入账户余额
+        title: 您想如何添加？
+      title: 您想添加什么？
+    sidebar:
+      assets: 资产
+      debts: 负债
+      all: 全部
+      new_asset: 新建资产
+      new_debt: 新增负债
+      new_account: 新建账户
+    show:
+      activity:
+        amount: 金额
+        balance: 余额
+        date: 日期
+        entries: 条记录
+        entry: 条记录
+        new: 新建
+        new_balance: 新建余额
+        new_transaction: 新建交易
+        no_entries: 未找到记录
+        title: 活动
+      chart:
+        balance: 余额
+        owed: 欠款金额
+      menu:
+        confirm_accept: 删除 "%{name}"
+        confirm_body_html: "<p>通过删除此账户，您将清除其价值历史记录，这会影响您整体账户的各个方面。此操作将直接影响您的净资产计算和账户图表。</p><br /> <p>删除后，您将无法恢复账户信息，因为您需要将其作为新账户重新添加。</p>"
+        confirm_title: 删除账户？
+        edit: 编辑
+        import: 导入交易
+        manage: 管理账户
+    update:
+      success: "%{type}账户已更新"
+  email_confirmations:
+    new:
+      invalid_token: 确认链接无效或已过期。
+      success_login: 您的邮箱已确认。请使用新邮箱地址登录。

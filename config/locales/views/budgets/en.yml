@@ -1,0 +1,25 @@
+---
+en:
+  budgets:
+    show:
+      categories: Categories
+      edit: Edit
+      today: Today
+      budgeted: Budgeted
+      actual: Actual
+    header:
+      today: Today
+    budget_categories:
+      categories: Categories
+      amount: Amount
+    actuals_summary:
+      income: Income
+      expenses: Expenses
+    budgeted_summary:
+      expected_income: Expected Income
+      budgeted: Budgeted
+    budget_donut:
+      new_budget: New Budget
+      spent: Spent
+      of: "of %{amount}"
+      unused: Unused

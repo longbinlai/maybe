@@ -1,0 +1,57 @@
+---
+en:
+  finance:
+    terms:
+      # Account types
+      cash: Cash
+      checking: Checking
+      savings: Savings
+      investment: Investment
+      retirement: Retirement
+      pension: Pension
+      brokerage: Brokerage
+      mutual_fund: Mutual Fund
+      etf: ETF
+      stock: Stock
+      bond: Bond
+      crypto: Crypto
+      bitcoin: Bitcoin
+      real_estate: Real Estate
+      property: Property
+      vehicle: Vehicle
+      loan: Loan
+      mortgage: Mortgage
+      credit_card: Credit Card
+      
+      # Financial terms
+      balance: Balance
+      principal: Principal
+      interest: Interest
+      dividend: Dividend
+      capital_gains: Capital Gains
+      net_worth: Net Worth
+      assets: Assets
+      liabilities: Liabilities
+      equity: Equity
+      portfolio: Portfolio
+      diversification: Diversification
+      risk: Risk
+      return: Return
+      yield: Yield
+      
+      # Transaction terms
+      buy: Buy
+      sell: Sell
+      deposit: Deposit
+      withdrawal: Withdrawal
+      transfer: Transfer
+      payment: Payment
+      fee: Fee
+      commission: Commission
+      
+      # Time related
+      monthly: Monthly
+      quarterly: Quarterly
+      annually: Annually
+      maturity: Maturity
+      term: Term

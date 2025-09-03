@@ -1,0 +1,29 @@
+---
+en:
+  period:
+    labels:
+      last_day: Last Day
+      current_week: This Week
+      last_7_days: Last 7 Days
+      current_month: This Month
+      last_30_days: Last 30 Days
+      last_90_days: Last 90 Days
+      current_year: This Year
+      all_time: All Time
+    labels_short:
+      last_day: 1D
+      current_week: WTD
+      last_7_days: 7D
+      current_month: MTD
+      last_30_days: 30D
+      last_90_days: 90D
+      current_year: YTD
+      all_time: All
+    comparison_labels:
+      vs_yesterday: vs yesterday
+      vs_start_of_week: vs start of week
+      vs_last_week: vs last week
+      vs_start_of_month: vs start of month
+      vs_last_month: vs last month
+      vs_last_quarter: vs last quarter
+      vs_start_of_year: vs start of year

@@ -1,0 +1,13 @@
+---
+zh-CN:
+  layouts:
+    auth:
+      existing_account: 已有账户？
+      no_account: 第一次使用Maybe？
+      sign_in: 登录
+      sign_up: 创建账户
+      your_account: 您的账户
+    shared:
+      footer:
+        privacy_policy: 隐私政策
+        terms_of_service: 服务条款

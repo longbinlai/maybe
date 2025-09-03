@@ -1,0 +1,25 @@
+---
+zh-CN:
+  navigation:
+    home: 首页
+    dashboard: 仪表板
+    transactions: 交易
+    budgets: 预算
+    accounts: 账户
+    assets: 资产
+    debts: 负债
+    settings: 设置
+    assistant: 助手
+    reports: 报告
+    categories: 分类
+    merchants: 商户
+    tags: 标签
+    imports: 导入
+    exports: 导出
+    logout: 退出登录
+    profile: 个人资料
+    preferences: 偏好设置
+    security: 安全
+    billing: 账单
+    help: 帮助
+    feedback: 反馈

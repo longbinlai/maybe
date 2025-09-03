@@ -1,0 +1,8 @@
+---
+zh-CN:
+  budget_categories:
+    no_categories:
+      title: 糟糕！
+      description: 您还没有创建或为您的交易分配任何支出类别。
+      use_defaults: 使用默认值（推荐）
+      new_category: 新建分类

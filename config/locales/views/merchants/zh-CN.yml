@@ -1,0 +1,26 @@
+---
+zh-CN:
+  family_merchants:
+    create:
+      error: '创建商户时出错：%{error}'
+      success: 新商户创建成功
+    destroy:
+      success: 商户删除成功
+    edit:
+      title: 编辑商户
+    form:
+      name_placeholder: 商户名称
+    index:
+      empty: 暂无商户
+      new: 新建商户
+      title: 商户
+    merchant:
+      confirm_accept: 删除商户
+      confirm_body: 您确定要删除此商户吗？移除此商户将取消所有关联交易的链接，可能会影响您的报告。
+      confirm_title: 删除商户？
+      delete: 删除商户
+      edit: 编辑商户
+    new:
+      title: 新建商户
+    update:
+      success: 商户更新成功

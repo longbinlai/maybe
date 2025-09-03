@@ -1,0 +1,8 @@
+---
+zh-CN:
+  invitation_mailer:
+    invite_email:
+      accept_button: 接受邀请
+      body: "%{inviter}已邀请您加入Maybe上的%{family}家庭！"
+      expiry_notice: 此邀请将在%{days}天后过期
+      greeting: 欢迎使用Maybe！

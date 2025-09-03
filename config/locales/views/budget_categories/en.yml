@@ -1,0 +1,8 @@
+---
+en:
+  budget_categories:
+    no_categories:
+      title: Oops!
+      description: You haven't created or assigned any expense categories to your transactions yet.
+      use_defaults: Use defaults (recommended)
+      new_category: New category

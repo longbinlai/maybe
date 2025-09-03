@@ -1,0 +1,23 @@
+---
+zh-CN:
+  plaid_items:
+    create:
+      success: 账户关联成功。请等待账户同步。
+    destroy:
+      success: 账户已安排删除。
+    plaid_item:
+      add_new: 添加新连接
+      confirm_accept: 删除机构
+      confirm_body: 这将永久删除此组中的所有账户和所有相关数据。
+      confirm_title: 删除机构？
+      connection_lost: 连接丢失
+      connection_lost_description: 此连接不再有效。您需要删除此连接并重新添加以继续同步数据。
+      delete: 删除
+      error: 同步数据时发生错误
+      no_accounts_description: 我们无法从此金融机构加载任何账户。
+      no_accounts_title: 未找到账户
+      requires_update: 需要重新认证
+      status: 上次同步于%{timestamp}前
+      status_never: 需要数据同步
+      syncing: 同步中...
+      update: 更新连接

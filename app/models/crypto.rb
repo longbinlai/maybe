@@ -15,7 +15,7 @@ class Crypto < ApplicationRecord
     end
 
     def display_name
-      "Crypto"
+      I18n.t("activerecord.models.account/crypto", default: "Crypto")
     end
   end
 end

@@ -11,13 +11,41 @@
   </section>
 
   <section class="space-y-2">
-    <%= f.collection_select :from_account_id, Current.family.accounts.manual.alphabetically, :id, :name, { prompt: t(".select_account"), label: t(".from") }, required: true %>
-    <%= f.collection_select :to_account_id, Current.family.accounts.manual.alphabetically, :id, :name, { prompt: t(".select_account"), label: t(".to") }, required: true %>
-    <%= f.number_field :amount, label: t(".amount"), required: true, min: 0, placeholder: "100", step: 0.00000001 %>
+    <div>
+      <%= f.collection_select :from_account_id, Current.family.accounts.manual.alphabetically, :id, :name, { prompt: t(".select_account"), label: t(".from") }, required: true, data: { action: "change->transfer-form#updateAccountInfo" } %>
+      <div id="from_account_info" class="mt-1 text-sm text-secondary hidden">
+        <span id="from_balance"></span> • <span id="from_currency"></span>
+      </div>
+    </div>
+    
+    <div>
+      <%= f.collection_select :to_account_id, Current.family.accounts.manual.alphabetically, :id, :name, { prompt: t(".select_account"), label: t(".to") }, required: true, data: { action: "change->transfer-form#updateAccountInfo" } %>
+      <div id="to_account_info" class="mt-1 text-sm text-secondary hidden">
+        <span id="to_balance"></span> • <span id="to_currency"></span>
+      </div>
+    </div>
+    
+    <div>
+      <%= f.number_field :amount, label: t(".amount"), required: true, min: 0, placeholder: "100", step: 0.00000001 %>
+      <div id="amount_currency_info" class="mt-1 text-sm text-secondary hidden">
+        <span>转账货币: </span><span id="transfer_currency"></span>
+      </div>
+    </div>
     <%= f.date_field :date, value: transfer.inflow_transaction&.entry&.date || Date.current, label: t(".date"), required: true, max: Date.current %>
   </section>
 
   <section>
     <%= f.submit t(".submit") %>
   </section>
+
+  <!-- 账户信息的隐藏数据 -->
+  <script type="application/json" id="accounts-data">
+    <%= Current.family.accounts.manual.alphabetically.map { |account| 
+      { 
+        id: account.id, 
+        balance: account.balance_money.format, 
+        currency: account.currency.upcase 
+      } 
+    }.to_json.html_safe %>
+  </script>
 <% end %>

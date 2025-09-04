@@ -70,6 +70,7 @@ zh-CN:
       api_key_label: API密钥
       billing_label: 账单
       categories_label: 分类
+      exchange_rates_label: 汇率管理
       feedback_label: 反馈
       general_section_title: 通用
       imports_label: 导入

@@ -63,6 +63,11 @@ Rails.application.routes.draw do
     resource :billing, only: :show
     resource :security, only: :show
     resource :api_key, only: [ :show, :new, :create, :destroy ]
+    resources :exchange_rates, only: [ :index, :create, :destroy ] do
+      collection do
+        post :sync_current_rates
+      end
+    end
   end
 
   resource :subscription, only: %i[new show create] do

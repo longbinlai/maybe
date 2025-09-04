@@ -1,0 +1,139 @@
+<%= settings_section(
+  title: t("settings.exchange_rates.index.title"),
+  subtitle: t("settings.exchange_rates.index.subtitle")
+) do %>
+  <div class="space-y-6">
+    <!-- 同步汇率按钮 -->
+    <div class="flex justify-between items-center">
+      <p class="text-sm text-secondary">
+        <%= t("settings.exchange_rates.index.last_updated") %>: 
+        <% if @exchange_rates.any? %>
+          <%= @exchange_rates.first.date.strftime("%Y-%m-%d") %>
+        <% else %>
+          <%= t("settings.exchange_rates.index.never") %>
+        <% end %>
+      </p>
+      <%= link_to sync_current_rates_settings_exchange_rates_path, 
+                  method: :post,
+                  confirm: t("settings.exchange_rates.index.sync_confirm"),
+                  class: "inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" do %>
+        <%= t("settings.exchange_rates.index.sync_current_rates") %>
+      <% end %>
+    </div>
+
+    <!-- 添加新汇率表单 -->
+    <div class="bg-surface-inset rounded-lg p-4">
+      <h3 class="text-lg font-medium mb-4"><%= t("settings.exchange_rates.index.add_rate_title") %></h3>
+      <%= form_with model: [:settings, ExchangeRate.new], local: true, class: "space-y-4" do |form| %>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <%= form.label :from_currency, t("settings.exchange_rates.index.from_currency"), class: "block text-sm font-medium text-primary" %>
+            <%= form.select :from_currency, 
+                            options_for_select(@supported_currencies.map { |c| [c, c] }), 
+                            { prompt: t("settings.exchange_rates.index.select_currency") },
+                            { class: "mt-1 block w-full border-secondary rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" } %>
+          </div>
+          
+          <div>
+            <%= form.label :to_currency, t("settings.exchange_rates.index.to_currency"), class: "block text-sm font-medium text-primary" %>
+            <%= form.select :to_currency, 
+                            options_for_select(@supported_currencies.map { |c| [c, c] }), 
+                            { prompt: t("settings.exchange_rates.index.select_currency") },
+                            { class: "mt-1 block w-full border-secondary rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" } %>
+          </div>
+          
+          <div>
+            <%= form.label :rate, t("settings.exchange_rates.index.rate"), class: "block text-sm font-medium text-primary" %>
+            <%= form.number_field :rate, 
+                                  step: 0.000001, 
+                                  placeholder: "1.0000",
+                                  class: "mt-1 block w-full border-secondary rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" %>
+          </div>
+          
+          <div>
+            <%= form.label :date, t("settings.exchange_rates.index.date"), class: "block text-sm font-medium text-primary" %>
+            <%= form.date_field :date, 
+                                value: Date.current,
+                                class: "mt-1 block w-full border-secondary rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" %>
+          </div>
+        </div>
+        
+        <div>
+          <%= form.submit t("settings.exchange_rates.index.add_rate"), 
+                          class: "inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500" %>
+        </div>
+      <% end %>
+    </div>
+
+    <!-- 当前汇率列表 -->
+    <div>
+      <h3 class="text-lg font-medium mb-4"><%= t("settings.exchange_rates.index.current_rates_title") %></h3>
+      <% if @exchange_rates.any? %>
+        <div class="bg-surface-inset rounded-lg overflow-hidden">
+          <table class="min-w-full divide-y divide-border">
+            <thead class="bg-surface">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                  <%= t("settings.exchange_rates.index.from_currency") %>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                  <%= t("settings.exchange_rates.index.to_currency") %>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                  <%= t("settings.exchange_rates.index.rate") %>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                  <%= t("settings.exchange_rates.index.date") %>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                  <%= t("settings.exchange_rates.index.actions") %>
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-container divide-y divide-border">
+              <% @exchange_rates.each do |rate| %>
+                <tr>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">
+                    <%= rate.from_currency %>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                    <%= rate.to_currency %>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                    <%= number_with_precision(rate.rate, precision: 6) %>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                    <%= rate.date.strftime("%Y-%m-%d") %>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                    <%= link_to t("settings.exchange_rates.index.delete"), 
+                                [:settings, rate], 
+                                method: :delete,
+                                confirm: t("settings.exchange_rates.index.delete_confirm"),
+                                class: "text-red-600 hover:text-red-900" %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <div class="text-center py-8">
+          <p class="text-secondary"><%= t("settings.exchange_rates.index.no_rates") %></p>
+        </div>
+      <% end %>
+    </div>
+
+    <!-- 支持的货币信息 -->
+    <div class="bg-surface-inset rounded-lg p-4">
+      <h3 class="text-lg font-medium mb-2"><%= t("settings.exchange_rates.index.supported_currencies") %></h3>
+      <div class="flex flex-wrap gap-2">
+        <% @supported_currencies.each do |currency| %>
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            <%= currency %>
+          </span>
+        <% end %>
+      </div>
+    </div>
+  </div>
+<% end %>

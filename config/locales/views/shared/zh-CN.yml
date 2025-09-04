@@ -22,6 +22,7 @@ zh-CN:
       valuations: "估值"
       chats: "聊天"
       family_exports: "导出"
+      exchange_rates: "汇率管理"
     confirm_modal:
       accept: 确认
       body_html: "<p>您将无法撤销此操作</p>"

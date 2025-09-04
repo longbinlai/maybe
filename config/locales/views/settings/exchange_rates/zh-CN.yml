@@ -1,0 +1,38 @@
+---
+zh-CN:
+  settings:
+    exchange_rates:
+      index:
+        title: 汇率管理
+        subtitle: "查看和管理汇率数据，包括自动获取和手动设置的汇率"
+        sync_current_rates: 同步当前汇率
+        sync_confirm: "确定要从汇率服务商同步当前汇率吗？这将获取所有支持货币对的最新汇率。"
+        fallback_rates_title: 后备汇率
+        fallback_rates_description: "当汇率服务商不可用时使用的预设汇率。这些是保守的近期平均值。"
+        add_rate_title: 手动添加汇率
+        from_currency: 源货币
+        to_currency: 目标货币
+        rate: 汇率
+        date: 日期
+        select_currency: 请选择货币
+        add_rate: 添加汇率
+        current_rates_title: 当前汇率记录
+        source: 来源
+        actions: 操作
+        provider: 服务商
+        manual: 手动
+        no_rates: 暂无汇率记录
+        delete_confirm: "确定要删除这条汇率记录吗？"
+        delete: 删除
+        supported_currencies: 支持的货币
+        last_updated: 最后更新
+        never: 从未更新
+      create:
+        success: 汇率添加成功
+        error: "汇率添加失败，请检查输入数据"
+      destroy:
+        deleted: 汇率记录已删除
+        cannot_delete_provider_rate: 无法删除由服务商提供的汇率记录
+      sync_current_rates:
+        sync_success: "成功同步了 %{count} 条汇率记录"
+        sync_partial: "同步完成：成功 %{success} 条，失败 %{errors} 条"

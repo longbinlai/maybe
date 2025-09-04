@@ -3,6 +3,7 @@ module SettingsHelper
     { name: "Account", path: :settings_profile_path },
     { name: "Preferences", path: :settings_preferences_path },
     { name: "Security", path: :settings_security_path },
+    { name: "Exchange Rates", path: :settings_exchange_rates_path },
     { name: "Self hosting", path: :settings_hosting_path, condition: :self_hosted? },
     { name: "API Key", path: :settings_api_key_path },
     { name: "Billing", path: :settings_billing_path, condition: :not_self_hosted? },

@@ -1,0 +1,38 @@
+---
+en:
+  settings:
+    exchange_rates:
+      index:
+        title: Exchange Rate Management
+        subtitle: "View and manage exchange rate data, including automatically fetched and manually set rates"
+        sync_current_rates: Sync Current Rates
+        sync_confirm: "Are you sure you want to sync current rates from the exchange rate provider? This will fetch the latest rates for all supported currency pairs."
+        fallback_rates_title: Fallback Rates
+        fallback_rates_description: "Pre-configured rates used when the exchange rate provider is unavailable. These are conservative recent averages."
+        add_rate_title: Add Rate Manually
+        from_currency: From Currency
+        to_currency: To Currency
+        rate: Rate
+        date: Date
+        select_currency: Select Currency
+        add_rate: Add Rate
+        current_rates_title: Current Rate Records
+        source: Source
+        actions: Actions
+        provider: Provider
+        manual: Manual
+        no_rates: No exchange rate records
+        delete_confirm: "Are you sure you want to delete this exchange rate record?"
+        delete: Delete
+        supported_currencies: Supported Currencies
+        last_updated: Last Updated
+        never: Never
+      create:
+        success: Exchange rate added successfully
+        error: "Failed to add exchange rate, please check your input"
+      destroy:
+        deleted: Exchange rate record deleted
+        cannot_delete_provider_rate: "Cannot delete exchange rate provided by external service"
+      sync_current_rates:
+        sync_success: "Successfully synced %{count} exchange rate records"
+        sync_partial: "Sync completed: %{success} successful, %{errors} failed"

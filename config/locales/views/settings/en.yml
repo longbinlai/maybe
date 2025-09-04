@@ -73,6 +73,7 @@ en:
       api_key_label: API Key
       billing_label: Billing
       categories_label: Categories
+      exchange_rates_label: Exchange Rates
       feedback_label: Feedback
       general_section_title: General
       imports_label: Imports

@@ -15,6 +15,7 @@ zh-CN:
       no_accounts: 暂无账户
     form:
       balance: 当前余额
+      balance_liability: 剩余欠款
       name_label: 账户名称
       name_placeholder: 示例账户名称
     index:

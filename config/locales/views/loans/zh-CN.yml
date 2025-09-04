@@ -8,6 +8,10 @@ zh-CN:
       interest_rate_placeholder: '5.25'
       initial_balance: 原始贷款余额
       rate_type: 利率类型
+      rate_types:
+        fixed: 固定利率
+        variable: 浮动利率
+        adjustable: 可调利率
       term_months: 期限（月）
       term_months_placeholder: '360'
     new:

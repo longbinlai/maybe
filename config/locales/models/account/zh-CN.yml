@@ -44,6 +44,20 @@ zh-CN:
           angel:
             short: 天使投资
             long: 天使投资
+      loan:
+        subtypes:
+          mortgage:
+            short: 房贷
+            long: 住房抵押贷款
+          student:
+            short: 学贷
+            long: 学生贷款
+          auto:
+            short: 车贷
+            long: 汽车贷款
+          other:
+            short: 其他贷款
+            long: 其他贷款
       depository:
         subtypes:
           checking:

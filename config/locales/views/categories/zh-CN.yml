@@ -14,6 +14,12 @@ zh-CN:
       edit: 编辑分类
     form:
       placeholder: 分类名称
+      classification: 分类类型
+      name: 名称
+      parent_category: 父级分类（可选）
+      unassigned: （未分配）
+      income: 收入
+      expense: 支出
     index:
       bootstrap: 使用默认设置（推荐）
       categories: 分类

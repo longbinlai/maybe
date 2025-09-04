@@ -14,6 +14,12 @@ en:
       edit: Edit category
     form:
       placeholder: Category name
+      classification: Classification
+      name: Name
+      parent_category: Parent category (optional)
+      unassigned: (unassigned)
+      income: Income
+      expense: Expense
     index:
       bootstrap: Use defaults (recommended)
       categories: Categories

@@ -62,10 +62,13 @@
       <% end %>
 
       <div class="space-y-2">
-        <%= f.select :classification, [["Income", "income"], ["Expense", "expense"]], { label: "Classification" }, required: true %>
-        <%= f.text_field :name, placeholder: t(".placeholder"), required: true, autofocus: true, label: "Name", data: { color_avatar_target: "name" } %>
+        <%= f.select :classification, [
+          [t("categories.form.income"), "income"], 
+          [t("categories.form.expense"), "expense"]
+        ], { label: t("categories.form.classification") }, required: true %>
+        <%= f.text_field :name, placeholder: t(".placeholder"), required: true, autofocus: true, label: t("categories.form.name"), data: { color_avatar_target: "name" } %>
         <% unless category.parent? %>
-          <%= f.select :parent_id, categories.pluck(:name, :id), { include_blank: "(unassigned)", label: "Parent category (optional)" }, disabled: category.parent?, data: { action: "change->category#handleParentChange" } %>
+          <%= f.select :parent_id, categories.pluck(:name, :id), { include_blank: t("categories.form.unassigned"), label: t("categories.form.parent_category") }, disabled: category.parent?, data: { action: "change->category#handleParentChange" } %>
         <% end %>
       </div>
     </section>

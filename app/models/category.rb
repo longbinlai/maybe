@@ -62,7 +62,7 @@ class Category < ApplicationRecord
 
     def uncategorized
       new(
-        name: "Uncategorized",
+        name: I18n.t("models.category.uncategorized"),
         color: UNCATEGORIZED_COLOR,
         lucide_icon: "circle-dashed"
       )

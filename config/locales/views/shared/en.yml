@@ -28,6 +28,24 @@ en:
       body_html: "<p>You will not be able to undo this decision</p>"
       cancel: Cancel
       title: Are you sure?
+    custom_confirm:
+      delete_title: "Delete %{resource}?"
+      delete_body: "Are you sure you want to delete %{resource}? This is not reversible."
+      delete_button: "Delete %{resource}"
+      default_title: "Are you sure?"
+      default_body: "This is not reversible."
+      default_button: "Confirm"
+      resources:
+        account: "Account"
+        chat: "Chat"
+        rule: "Rule"
+        all_rules: "All Rules"
+        all_categories: "All Categories"
+        transaction: "Transaction"
+        entry: "Entry"
+        value_update: "Value Update"
+        import: "Import"
+        your_account: "Your Account"
     money_field:
       label: Amount
     syncing_notice:

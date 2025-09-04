@@ -10,12 +10,21 @@ class Balance::ForwardCalculator < Balance::BaseCalculator
       calc_start_date.upto(calc_end_date).map do |date|
         valuation = sync_cache.get_valuation(date)
 
+        # Initialize variables for valuation balances
+        valuation_cash_balance = nil
+        valuation_non_cash_balance = nil
+
         if valuation
-          end_cash_balance = derive_cash_balance_on_date_from_total(
+          # Use valuation as the starting point for this date
+          valuation_cash_balance = derive_cash_balance_on_date_from_total(
             total_balance: valuation.amount,
             date: date
           )
-          end_non_cash_balance = valuation.amount - end_cash_balance
+          valuation_non_cash_balance = valuation.amount - valuation_cash_balance
+          
+          # Then apply transactions that occurred on the same date
+          end_cash_balance = derive_end_cash_balance(start_cash_balance: valuation_cash_balance, date: date)
+          end_non_cash_balance = derive_end_non_cash_balance(start_non_cash_balance: valuation_non_cash_balance, date: date)
         else
           end_cash_balance = derive_end_cash_balance(start_cash_balance: start_cash_balance, date: date)
           end_non_cash_balance = derive_end_non_cash_balance(start_non_cash_balance: start_non_cash_balance, date: date)
@@ -24,15 +33,19 @@ class Balance::ForwardCalculator < Balance::BaseCalculator
         flows = flows_for_date(date)
         market_value_change = market_value_change_on_date(date, flows)
 
-        cash_adjustments = cash_adjustments_for_date(start_cash_balance, end_cash_balance, (flows[:cash_inflows] - flows[:cash_outflows]) * flows_factor)
-        non_cash_adjustments = non_cash_adjustments_for_date(start_non_cash_balance, end_non_cash_balance, (flows[:non_cash_inflows] - flows[:non_cash_outflows]) * flows_factor)
+        # Determine the actual starting balances for this date (accounting for valuations)
+        actual_start_cash_balance = valuation ? valuation_cash_balance : start_cash_balance
+        actual_start_non_cash_balance = valuation ? valuation_non_cash_balance : start_non_cash_balance
+
+        cash_adjustments = cash_adjustments_for_date(actual_start_cash_balance, end_cash_balance, (flows[:cash_inflows] - flows[:cash_outflows]) * flows_factor)
+        non_cash_adjustments = non_cash_adjustments_for_date(actual_start_non_cash_balance, end_non_cash_balance, (flows[:non_cash_inflows] - flows[:non_cash_outflows]) * flows_factor)
 
         output_balance = build_balance(
           date: date,
           balance: end_cash_balance + end_non_cash_balance,
           cash_balance: end_cash_balance,
-          start_cash_balance: start_cash_balance,
-          start_non_cash_balance: start_non_cash_balance,
+          start_cash_balance: actual_start_cash_balance,
+          start_non_cash_balance: actual_start_non_cash_balance,
           cash_inflows: flows[:cash_inflows],
           cash_outflows: flows[:cash_outflows],
           non_cash_inflows: flows[:non_cash_inflows],

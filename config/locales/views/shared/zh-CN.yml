@@ -28,6 +28,24 @@ zh-CN:
       body_html: "<p>您将无法撤销此操作</p>"
       cancel: 取消
       title: 您确定吗？
+    custom_confirm:
+      delete_title: "删除%{resource}？"
+      delete_body: "您确定要删除%{resource}吗？此操作不可逆转。"
+      delete_button: "删除%{resource}"
+      default_title: "您确定吗？"
+      default_body: "此操作不可逆转。"
+      default_button: "确认"
+      resources:
+        account: "账户"
+        chat: "聊天"
+        rule: "规则"
+        all_rules: "所有规则"
+        all_categories: "所有分类"
+        transaction: "交易"
+        entry: "条目"
+        value_update: "价值更新"
+        import: "导入"
+        your_account: "您的账户"
     money_field:
       label: 金额
     syncing_notice:

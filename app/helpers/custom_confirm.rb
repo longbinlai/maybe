@@ -3,13 +3,26 @@
 class CustomConfirm
   class << self
     def for_resource_deletion(resource_name, high_severity: false)
+      translated_resource = translate_resource_name(resource_name)
+      
       new(
         destructive: true,
         high_severity: high_severity,
-        title: "Delete #{resource_name.titleize}?",
-        body: "Are you sure you want to delete #{resource_name.downcase}? This is not reversible.",
-        btn_text: "Delete #{resource_name.titleize}"
+        title: I18n.t("shared.custom_confirm.delete_title", resource: translated_resource),
+        body: I18n.t("shared.custom_confirm.delete_body", resource: translated_resource.downcase),
+        btn_text: I18n.t("shared.custom_confirm.delete_button", resource: translated_resource)
       )
+    end
+    
+    private
+    
+    def translate_resource_name(resource_name)
+      # Try to find a specific translation for the resource
+      key = "shared.custom_confirm.resources.#{resource_name.downcase.gsub(' ', '_')}"
+      translated = I18n.t(key, default: nil)
+      
+      # If no specific translation found, use the original but titleized
+      translated || resource_name.titleize
     end
   end
 
@@ -38,14 +51,14 @@ class CustomConfirm
     end
 
     def default_title
-      "Are you sure?"
+      I18n.t("shared.custom_confirm.default_title")
     end
 
     def default_body
-      "This is not reversible."
+      I18n.t("shared.custom_confirm.default_body")
     end
 
     def default_btn_text
-      "Confirm"
+      I18n.t("shared.custom_confirm.default_button")
     end
 end

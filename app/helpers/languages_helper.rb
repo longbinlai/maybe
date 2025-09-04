@@ -355,8 +355,11 @@ module LanguagesHelper
   end
 
   def language_options
-    I18n.available_locales
-      .reject { |locale| EXCLUDED_LOCALES.include?(locale.to_s) }
+    # Only show English, Simplified Chinese, and Traditional Chinese
+    allowed_locales = [:en, :'zh-CN', :'zh-TW']
+    
+    allowed_locales
+      .select { |locale| I18n.available_locales.include?(locale) }
       .map do |locale|
         label = LANGUAGE_MAPPING[locale.to_sym] || locale.to_s.humanize
         [ "#{label} (#{locale})", locale ]

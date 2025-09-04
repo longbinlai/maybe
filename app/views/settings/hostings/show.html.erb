@@ -1,10 +1,15 @@
 <%= content_for :page_title, t(".title") %>
 
+<%# 
+  Synth API settings commented out as the service is discontinued
+  and replaced with European Central Bank API for exchange rates
+
 <%= settings_section title: t(".general") do %>
   <div class="space-y-6">
     <%= render "settings/hostings/synth_settings" %>
   </div>
 <% end %>
+%>
 
 <%= settings_section title: t(".invites") do %>
   <%= render "settings/hostings/invite_code_settings" %>

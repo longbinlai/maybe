@@ -57,10 +57,13 @@ zh-CN:
       chart:
         balance: 余额
         owed: 欠款金额
+      header:
+        complete_setup: 完成设置
       menu:
         confirm_accept: 删除 "%{name}"
         confirm_body_html: "<p>通过删除此账户，您将清除其价值历史记录，这会影响您整体账户的各个方面。此操作将直接影响您的净资产计算和账户图表。</p><br /> <p>删除后，您将无法恢复账户信息，因为您需要将其作为新账户重新添加。</p>"
         confirm_title: 删除账户？
+        delete: 删除账户
         edit: 编辑
         import: 导入交易
         manage: 管理账户

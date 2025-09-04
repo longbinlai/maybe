@@ -4,8 +4,9 @@ class Settings::ExchangeRatesController < ApplicationController
   layout "settings"
 
   def index
-    @exchange_rates = ExchangeRate.order(date: :desc, from_currency: :asc, to_currency: :asc)
-                                  .limit(50)
+    # 使用 DISTINCT ON 获取每个货币对的最新汇率记录
+    @exchange_rates = ExchangeRate.select('DISTINCT ON (from_currency, to_currency) *')
+                                  .order(:from_currency, :to_currency, date: :desc)
     
     @supported_currencies = load_supported_currencies
     

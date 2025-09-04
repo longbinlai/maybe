@@ -37,6 +37,11 @@ class PropertiesController < ApplicationController
   end
 
   def update_balances
+    # Update account currency if it's different
+    if balance_params[:currency].present? && @account.currency != balance_params[:currency]
+      @account.update!(currency: balance_params[:currency])
+    end
+
     result = @account.set_current_balance(balance_params[:balance].to_d)
 
     if result.success?
@@ -62,11 +67,8 @@ class PropertiesController < ApplicationController
     if @account.property.update(address_params)
       if @account.draft?
         @account.activate!
-
-        respond_to do |format|
-          format.html { redirect_to account_path(@account) }
-          format.turbo_stream { stream_redirect_to account_path(@account) }
-        end
+        @success_message = "Property setup completed successfully!"
+        render :address
       else
         @success_message = "Address updated successfully."
         render :address

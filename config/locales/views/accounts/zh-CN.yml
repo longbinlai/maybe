@@ -39,6 +39,15 @@ zh-CN:
       new_asset: 新建资产
       new_debt: 新增负债
       new_account: 新建账户
+      new_depository: 新建存款账户
+      new_investment: 新建投资账户
+      new_credit_card: 新建信用卡
+      new_loan: 新建贷款
+      new_other_asset: 新建其他资产
+      new_other_liability: 新建其他负债
+      new_property: 新建房地产
+      new_vehicle: 新建车辆资产
+      new_crypto: 新建加密货币
     show:
       activity:
         amount: 金额

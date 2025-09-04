@@ -65,6 +65,51 @@ zh-CN:
     securities:
       show:
         page_title: 安全
+    exchange_rates:
+      index:
+        title: "汇率管理"
+        subtitle: "管理货币兑换汇率，支持从欧洲央行API获取实时汇率"
+        last_updated: "最后更新"
+        never: "从未更新"
+        current_provider: "当前提供商"
+        no_provider: "未配置提供商"
+        sync_current_rates: "同步当前汇率"
+        sync_confirm: "确定要从外部提供商同步所有货币的当前汇率吗？这可能需要一些时间。"
+        add_rate_title: "添加自定义汇率"
+        from_currency: "源货币"
+        to_currency: "目标货币"
+        rate: "汇率"
+        date: "日期"
+        select_currency: "选择货币"
+        add_rate: "添加汇率"
+        fetch_rate: "获取汇率"
+        fetch_rate_hint: '点击"获取汇率"按钮从欧洲央行API获取实时汇率，如果获取失败可以手动输入'
+        select_currencies_first: "请先选择源货币和目标货币"
+        same_currency_error: "源货币和目标货币不能相同"
+        fetching: "获取中..."
+        rate_fetched: "汇率获取成功"
+        fetch_failed: "获取汇率失败"
+        fetch_error_generic: "获取汇率时发生网络错误，请手动输入汇率"
+        current_rates_title: "当前汇率"
+        rates_explanation: "显示数据库中的汇率记录和预定义的后备汇率"
+        source: "来源"
+        actions: "操作"
+        database: "数据库"
+        fallback: "后备"
+        predefined: "预定义"
+        delete: "删除"
+        delete_confirm: "确定要删除这个汇率记录吗？"
+        cannot_delete: "无法删除"
+        no_rates: "暂无汇率数据"
+        supported_currencies: "支持的货币"
+      create:
+        success: "汇率添加成功"
+        error: "汇率添加失败，请检查输入数据"
+      destroy:
+        deleted: "汇率删除成功"
+      sync_current_rates:
+        sync_success: "成功同步了 %{count} 个汇率"
+        sync_partial: "同步完成：%{success} 个成功，%{errors} 个失败"
     settings_nav:
       accounts_label: 账户
       api_key_label: API密钥

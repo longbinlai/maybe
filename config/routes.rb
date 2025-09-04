@@ -66,6 +66,7 @@ Rails.application.routes.draw do
     resources :exchange_rates, only: [ :index, :create, :destroy ] do
       collection do
         post :sync_current_rates
+        get :fetch_rate
       end
     end
   end

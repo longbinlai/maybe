@@ -45,6 +45,48 @@ class Settings::ExchangeRatesController < ApplicationController
     redirect_to settings_exchange_rates_path, notice: t(".deleted")
   end
 
+  def fetch_rate
+    from_currency = params[:from_currency]
+    to_currency = params[:to_currency]
+    date = params[:date]&.to_date || Date.current
+    
+    if from_currency.blank? || to_currency.blank?
+      render json: { error: "缺少货币参数" }, status: :bad_request
+      return
+    end
+    
+    if from_currency == to_currency
+      render json: { error: "源货币和目标货币不能相同" }, status: :bad_request
+      return
+    end
+    
+    begin
+      # 直接使用欧洲央行API
+      ecb_provider = Provider::EuropeanCentralBank.new
+      response = ecb_provider.fetch_exchange_rate(from: from_currency, to: to_currency, date: date)
+      
+      if response.success?
+        rate_data = response.data
+        render json: { 
+          success: true, 
+          rate: rate_data.rate.to_f.round(6),
+          from: rate_data.from,
+          to: rate_data.to,
+          date: rate_data.date.strftime("%Y-%m-%d")
+        }
+      else
+        render json: { 
+          error: "无法获取汇率：#{response.error || '提供商返回错误'}" 
+        }, status: :service_unavailable
+      end
+    rescue => e
+      Rails.logger.error "Failed to fetch rate #{from_currency} -> #{to_currency}: #{e.message}"
+      render json: { 
+        error: "获取汇率时发生错误：#{e.message}" 
+      }, status: :internal_server_error
+    end
+  end
+
   def sync_current_rates
     currencies = load_supported_currencies
     success_count = 0

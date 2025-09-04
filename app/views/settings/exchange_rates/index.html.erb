@@ -44,10 +44,19 @@
           
           <div>
             <%= form.label :rate, t("settings.exchange_rates.index.rate"), class: "block text-sm font-medium text-primary" %>
-            <%= form.number_field :rate, 
-                                  step: 0.000001, 
-                                  placeholder: "1.0000",
-                                  class: "mt-1 block w-full border-secondary rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" %>
+            <div class="flex space-x-2">
+              <%= form.number_field :rate, 
+                                    step: 0.000001, 
+                                    placeholder: "1.0000",
+                                    id: "exchange_rate_rate",
+                                    class: "mt-1 block w-full border-secondary rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" %>
+              <button type="button" 
+                      id="fetch-rate-btn"
+                      class="mt-1 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                <%= t("settings.exchange_rates.index.fetch_rate") %>
+              </button>
+            </div>
+            <p class="mt-1 text-xs text-secondary"><%= t("settings.exchange_rates.index.fetch_rate_hint") %></p>
           </div>
           
           <div>
@@ -182,3 +191,76 @@
     </div>
   </div>
 <% end %>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const fetchRateBtn = document.getElementById('fetch-rate-btn');
+  const fromCurrencySelect = document.getElementById('exchange_rate_from_currency');
+  const toCurrencySelect = document.getElementById('exchange_rate_to_currency');
+  const rateInput = document.getElementById('exchange_rate_rate');
+  const dateInput = document.getElementById('exchange_rate_date');
+  
+  if (!fetchRateBtn || !fromCurrencySelect || !toCurrencySelect || !rateInput || !dateInput) {
+    console.log('汇率获取功能：找不到必要的DOM元素');
+    return;
+  }
+  
+  fetchRateBtn.addEventListener('click', function() {
+    const fromCurrency = fromCurrencySelect.value;
+    const toCurrency = toCurrencySelect.value;
+    const date = dateInput.value;
+    
+    if (!fromCurrency || !toCurrency) {
+      alert('<%= t("settings.exchange_rates.index.select_currencies_first") %>');
+      return;
+    }
+    
+    if (fromCurrency === toCurrency) {
+      alert('<%= t("settings.exchange_rates.index.same_currency_error") %>');
+      return;
+    }
+    
+    // 禁用按钮并显示加载状态
+    fetchRateBtn.disabled = true;
+    const originalText = fetchRateBtn.textContent;
+    fetchRateBtn.textContent = '<%= t("settings.exchange_rates.index.fetching") %>';
+    
+    // 构建请求URL
+    const url = '<%= fetch_rate_settings_exchange_rates_path %>' + 
+                `?from_currency=${encodeURIComponent(fromCurrency)}&to_currency=${encodeURIComponent(toCurrency)}&date=${encodeURIComponent(date)}`;
+    
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(response => {
+      if (!response.ok) {
+        return response.json().then(data => {
+          throw new Error(data.error || '网络请求失败');
+        });
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data.success) {
+        rateInput.value = data.rate;
+        alert(`<%= t("settings.exchange_rates.index.rate_fetched") %>: ${data.from} → ${data.to} = ${data.rate}`);
+      } else {
+        alert(`<%= t("settings.exchange_rates.index.fetch_failed") %>: ${data.error}`);
+      }
+    })
+    .catch(error => {
+      console.error('获取汇率错误:', error);
+      alert(`<%= t("settings.exchange_rates.index.fetch_error_generic") %>: ${error.message}`);
+    })
+    .finally(() => {
+      // 恢复按钮状态
+      fetchRateBtn.disabled = false;
+      fetchRateBtn.textContent = originalText;
+    });
+  });
+});
+</script>

@@ -68,6 +68,51 @@ en:
     securities:
       show:
         page_title: Security
+    exchange_rates:
+      index:
+        title: "Exchange Rate Management"
+        subtitle: "Manage currency exchange rates with real-time data from European Central Bank API"
+        last_updated: "Last updated"
+        never: "Never updated"
+        current_provider: "Current provider"
+        no_provider: "No provider configured"
+        sync_current_rates: "Sync current rates"
+        sync_confirm: "Are you sure you want to sync all currency rates from external provider? This may take some time."
+        add_rate_title: "Add custom exchange rate"
+        from_currency: "From currency"
+        to_currency: "To currency"
+        rate: "Rate"
+        date: "Date"
+        select_currency: "Select currency"
+        add_rate: "Add rate"
+        fetch_rate: "Fetch rate"
+        fetch_rate_hint: "Click 'Fetch rate' button to get real-time rates from European Central Bank API, or enter manually if fetch fails"
+        select_currencies_first: "Please select source and target currencies first"
+        same_currency_error: "Source and target currencies cannot be the same"
+        fetching: "Fetching..."
+        rate_fetched: "Rate fetched successfully"
+        fetch_failed: "Failed to fetch rate"
+        fetch_error_generic: "Network error occurred while fetching rate, please enter manually"
+        current_rates_title: "Current rates"
+        rates_explanation: "Shows exchange rate records from database and predefined fallback rates"
+        source: "Source"
+        actions: "Actions"
+        database: "Database"
+        fallback: "Fallback"
+        predefined: "Predefined"
+        delete: "Delete"
+        delete_confirm: "Are you sure you want to delete this exchange rate record?"
+        cannot_delete: "Cannot delete"
+        no_rates: "No exchange rate data"
+        supported_currencies: "Supported currencies"
+      create:
+        success: "Exchange rate added successfully"
+        error: "Failed to add exchange rate, please check input data"
+      destroy:
+        deleted: "Exchange rate deleted successfully"
+      sync_current_rates:
+        sync_success: "Successfully synced %{count} exchange rates"
+        sync_partial: "Sync completed: %{success} successful, %{errors} failed"
     settings_nav:
       accounts_label: Accounts
       api_key_label: API Key

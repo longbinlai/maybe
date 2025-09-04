@@ -6,7 +6,7 @@ class Settings::ExchangeRatesController < ApplicationController
                                   .limit(50)
     
     @supported_currencies = ["USD", "CNY", "EUR", "GBP", "JPY"]
-    @fallback_rates = {}
+    @fallback_rates = load_fallback_rates
   end
 
   def create

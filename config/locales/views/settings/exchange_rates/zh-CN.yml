@@ -17,10 +17,15 @@ zh-CN:
         select_currency: 请选择货币
         add_rate: 添加汇率
         current_rates_title: 当前汇率记录
+        rates_explanation: "下表显示了所有可用的汇率：绿色标签表示数据库中的实时汇率，黄色标签表示预定义的后备汇率（不可删除）。"
         source: 来源
         actions: 操作
         provider: 服务商
         manual: 手动
+        database: 数据库
+        fallback: 预定义
+        predefined: 预定义数值
+        cannot_delete: 不可删除
         no_rates: 暂无汇率记录
         delete_confirm: "确定要删除这条汇率记录吗？"
         delete: 删除

@@ -67,8 +67,12 @@
 
     <!-- 当前汇率列表 -->
     <div>
-      <h3 class="text-lg font-medium mb-4"><%= t("settings.exchange_rates.index.current_rates_title") %></h3>
-      <% if @exchange_rates.any? %>
+      <h3 class="text-lg font-medium mb-2"><%= t("settings.exchange_rates.index.current_rates_title") %></h3>
+      <p class="text-sm text-secondary mb-4">
+        <%= t("settings.exchange_rates.index.rates_explanation") %>
+      </p>
+      
+      <% if @exchange_rates.any? || @fallback_rates.any? %>
         <div class="bg-surface-inset rounded-lg overflow-hidden">
           <table class="min-w-full divide-y divide-border">
             <thead class="bg-surface">
@@ -86,11 +90,15 @@
                   <%= t("settings.exchange_rates.index.date") %>
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
+                  <%= t("settings.exchange_rates.index.source") %>
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-secondary uppercase tracking-wider">
                   <%= t("settings.exchange_rates.index.actions") %>
                 </th>
               </tr>
             </thead>
             <tbody class="bg-container divide-y divide-border">
+              <!-- 数据库中的汇率记录 -->
               <% @exchange_rates.each do |rate| %>
                 <tr>
                   <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">
@@ -106,6 +114,11 @@
                     <%= rate.date.strftime("%Y-%m-%d") %>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <%= t("settings.exchange_rates.index.database") %>
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary">
                     <%= link_to t("settings.exchange_rates.index.delete"), 
                                 [:settings, rate], 
                                 method: :delete,
@@ -113,6 +126,38 @@
                                 class: "text-red-600 hover:text-red-900" %>
                   </td>
                 </tr>
+              <% end %>
+              
+              <!-- 预定义的后备汇率 -->
+              <% @fallback_rates.each do |from_currency, rates| %>
+                <% rates.each do |to_currency, rate| %>
+                  <tr class="bg-yellow-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">
+                      <%= from_currency %>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                      <%= to_currency %>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                      <%= number_with_precision(rate, precision: 6) %>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                      <span class="text-yellow-600">
+                        <%= t("settings.exchange_rates.index.predefined") %>
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <%= t("settings.exchange_rates.index.fallback") %>
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-secondary">
+                      <span class="text-gray-400">
+                        <%= t("settings.exchange_rates.index.cannot_delete") %>
+                      </span>
+                    </td>
+                  </tr>
+                <% end %>
               <% end %>
             </tbody>
           </table>

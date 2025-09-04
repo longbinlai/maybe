@@ -10,3 +10,10 @@ zh-CN:
     reset:
       success: 您的账户已重置。数据将在一段时间后在后台删除。
       unauthorized: 您无权执行此操作
+    user_menu:
+      settings: 设置
+      changelog: 更新日志
+      feedback: 反馈
+      contact: 联系
+      log_out: 退出登录
+      version: 版本

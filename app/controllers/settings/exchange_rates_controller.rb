@@ -1,3 +1,5 @@
+require 'set'
+
 class Settings::ExchangeRatesController < ApplicationController
   layout "settings"
 
@@ -5,8 +7,26 @@ class Settings::ExchangeRatesController < ApplicationController
     @exchange_rates = ExchangeRate.order(date: :desc, from_currency: :asc, to_currency: :asc)
                                   .limit(50)
     
-    @supported_currencies = ["USD", "CNY", "EUR", "GBP", "JPY"]
-    @fallback_rates = load_fallback_rates
+    @supported_currencies = load_supported_currencies
+    
+    # 加载后备汇率
+    all_fallback_rates = load_fallback_rates
+    
+    # 获取数据库中已存在的货币对
+    existing_pairs = Set.new(@exchange_rates.map { |rate| "#{rate.from_currency}-#{rate.to_currency}" })
+    
+    # 过滤掉数据库中已存在的货币对
+    @fallback_rates = {}
+    all_fallback_rates.each do |from_currency, rates|
+      filtered_rates = {}
+      rates.each do |to_currency, rate|
+        pair_key = "#{from_currency}-#{to_currency}"
+        unless existing_pairs.include?(pair_key)
+          filtered_rates[to_currency] = rate
+        end
+      end
+      @fallback_rates[from_currency] = filtered_rates unless filtered_rates.empty?
+    end
   end
 
   def create

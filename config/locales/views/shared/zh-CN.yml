@@ -23,6 +23,12 @@ zh-CN:
       chats: "聊天"
       family_exports: "导出"
       exchange_rates: "汇率管理"
+      profiles: "个人资料"
+      preferences: "偏好设置"
+      securities: "安全"
+      billings: "账单"
+      hostings: "自托管"
+      api_keys: "API密钥"
     confirm_modal:
       accept: 确认
       body_html: "<p>您将无法撤销此操作</p>"

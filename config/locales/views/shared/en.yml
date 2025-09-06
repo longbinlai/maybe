@@ -23,6 +23,12 @@ en:
       chats: "Chat"
       family_exports: "Exports"
       exchange_rates: "Exchange Rates"
+      profiles: "Profile"
+      preferences: "Preferences"
+      securities: "Security"
+      billings: "Billing"
+      hostings: "Hosting"
+      api_keys: "API Keys"
     confirm_modal:
       accept: Confirm
       body_html: "<p>You will not be able to undo this decision</p>"

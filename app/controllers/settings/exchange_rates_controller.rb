@@ -89,25 +89,55 @@ class Settings::ExchangeRatesController < ApplicationController
   end
 
   def sync_current_rates
-    currencies = load_supported_currencies
     success_count = 0
     error_count = 0
 
-    currencies.each do |from_currency|
-      currencies.each do |to_currency|
-        next if from_currency == to_currency
+    # 获取需要更新的货币对：数据库中已存在的汇率记录
+    existing_pairs = Set.new(ExchangeRate.select(:from_currency, :to_currency).distinct.map { |rate| 
+      [rate.from_currency, rate.to_currency] 
+    })
+    
+    # 添加fallback配置中的货币对
+    fallback_rates = load_fallback_rates
+    fallback_rates.each do |from_currency, rates|
+      rates.each do |to_currency, _rate|
+        existing_pairs.add([from_currency.upcase, to_currency.upcase])
+      end
+    end
+
+    existing_pairs.each do |from_currency, to_currency|
+      begin
+        # 使用与fetch_rate相同的逻辑获取汇率
+        ecb_provider = Provider::EuropeanCentralBank.new
+        response = ecb_provider.fetch_exchange_rate(
+          from: from_currency, 
+          to: to_currency, 
+          date: Date.current
+        )
         
-        begin
-          ExchangeRate::Provided.fetch_rate_by_date(
-            from: from_currency,
-            to: to_currency,
-            date: Date.current
+        if response.success?
+          rate_data = response.data
+          # 创建或更新汇率记录
+          exchange_rate = ExchangeRate.find_or_initialize_by(
+            from_currency: rate_data.from,
+            to_currency: rate_data.to,
+            date: rate_data.date
           )
-          success_count += 1
-        rescue => e
+          exchange_rate.rate = rate_data.rate
+          
+          if exchange_rate.save
+            success_count += 1
+          else
+            error_count += 1
+            Rails.logger.error "Failed to save rate #{from_currency} -> #{to_currency}: #{exchange_rate.errors.full_messages.join(', ')}"
+          end
+        else
           error_count += 1
-          Rails.logger.error "Failed to fetch rate #{from_currency} -> #{to_currency}: #{e.message}"
+          Rails.logger.error "Failed to fetch rate #{from_currency} -> #{to_currency}: #{response.error || 'Provider returned error'}"
         end
+      rescue => e
+        error_count += 1
+        Rails.logger.error "Failed to fetch rate #{from_currency} -> #{to_currency}: #{e.message}"
       end
     end
 

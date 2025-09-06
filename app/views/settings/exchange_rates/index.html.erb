@@ -13,11 +13,10 @@
           <%= t("settings.exchange_rates.index.never") %>
         <% end %>
       </p>
-      <%= link_to sync_current_rates_settings_exchange_rates_path, 
-                  method: :post,
-                  confirm: t("settings.exchange_rates.index.sync_confirm"),
-                  class: "inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" do %>
-        <%= t("settings.exchange_rates.index.sync_current_rates") %>
+      <%= form_with url: sync_current_rates_settings_exchange_rates_path, method: :post, local: true, class: "inline" do |form| %>
+        <%= form.submit t("settings.exchange_rates.index.sync_current_rates"),
+                        confirm: t("settings.exchange_rates.index.sync_confirm"),
+                        class: "inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" %>
       <% end %>
     </div>
 

@@ -20,6 +20,7 @@ zh-CN:
         feature_1: "以编程方式访问您的账户数据"
         feature_2: "构建自定义集成和应用程序"
         feature_3: "自动化数据检索和分析"
+        feature_4: "与第三方应用程序集成"
         security_note_title: "安全至上"
         security_note: "您的API密钥将根据您选择的范围拥有受限权限。您一次只能拥有一个活跃的API密钥。"
         create_api_key: "创建API密钥"

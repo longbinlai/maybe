@@ -20,6 +20,7 @@ en:
         feature_1: "Access your account data programmatically"
         feature_2: "Build custom integrations and applications"
         feature_3: "Automate data retrieval and analysis"
+        feature_4: "Integrate with third-party applications"
         security_note_title: "Security First"
         security_note: "Your API key will have restricted permissions based on the scopes you select. You can only have one active API key at a time."
         create_api_key: "Create API Key"

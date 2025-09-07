@@ -1,6 +1,17 @@
 ---
 en:
   budgets:
+    edit:
+      title: Setup your budget
+      description: Enter your monthly earnings and planned spending below to setup your budget.
+      budgeted_spending: Budgeted spending
+      expected_income: Expected income
+      autosuggest_title: Autosuggest income & spending budget
+      autosuggest_description: This will be based on transaction history. AI can make mistakes, verify before continuing.
+      continue: Continue
+    nav:
+      setup: Setup
+      categories: Categories
     show:
       categories: Categories
       edit: Edit

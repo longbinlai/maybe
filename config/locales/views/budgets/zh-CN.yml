@@ -1,6 +1,17 @@
 ---
 zh-CN:
   budgets:
+    edit:
+      title: 设置您的预算
+      description: 在下方输入您的月收入和计划支出来设置预算。
+      budgeted_spending: 预算支出
+      expected_income: 预期收入
+      autosuggest_title: 自动建议收入和支出预算
+      autosuggest_description: 这将基于交易历史记录。AI可能会出错，请在继续之前验证。
+      continue: 继续
+    nav:
+      setup: 设置
+      categories: 分类
     show:
       categories: 分类
       edit: 编辑

@@ -46,15 +46,15 @@ class Money
     if iso_code == other_iso_code
       self
     else
-      # Fetch provider rate if available
-      fetched = store.find_or_fetch_rate(from: iso_code, to: other_iso_code, date: date)
-      provider_rate = fetched&.rate
+      # First try to find latest rate in database (no external API calls)
+      latest_rate = store.find_latest_rate(from: iso_code, to: other_iso_code)
+      provider_rate = latest_rate&.rate
 
       # Normalize provider rate to BigDecimal when present for consistent comparison
       provider_rate_bd = provider_rate.nil? ? nil : BigDecimal(provider_rate.to_s)
 
-      # Prefer provider rate when it's present and not the sentinel value 1.
-      # If provider rate is missing or equals 1 (commonly used as a sentinel),
+      # Prefer database rate when it's present and not the sentinel value 1.
+      # If database rate is missing or equals 1 (commonly used as a sentinel),
       # first try the built-in fallback table. If that yields nothing, use the
       # explicit fallback_rate passed by caller (if any).
       if provider_rate_bd && provider_rate_bd != BigDecimal("1")

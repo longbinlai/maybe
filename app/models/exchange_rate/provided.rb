@@ -7,6 +7,13 @@ module ExchangeRate::Provided
       registry.get_provider(:synth)
     end
 
+    # Find latest available exchange rate in database (NO external API calls)
+    def find_latest_rate(from:, to:)
+      where(from_currency: from, to_currency: to)
+        .order(date: :desc)
+        .first
+    end
+
     def find_or_fetch_rate(from:, to:, date: Date.current, cache: true)
       rate = find_by(from_currency: from, to_currency: to, date: date)
       return rate if rate.present?

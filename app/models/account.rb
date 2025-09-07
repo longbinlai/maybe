@@ -160,4 +160,11 @@ class Account < ApplicationRecord
       raise "Unknown account type: #{accountable_type}"
     end
   end
+
+  # Convert account balance to family's default currency
+  def converted_balance
+    return balance if currency == family.currency
+    
+    balance_money.exchange_to(family.currency, fallback_rate: 1).amount
+  end
 end

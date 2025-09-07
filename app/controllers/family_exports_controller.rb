@@ -2,7 +2,7 @@ class FamilyExportsController < ApplicationController
   include StreamExtensions
 
   before_action :require_admin
-  before_action :set_export, only: [ :download ]
+  before_action :set_export, only: [ :download, :destroy ]
 
   def new
     # Modal view for initiating export
@@ -40,6 +40,17 @@ class FamilyExportsController < ApplicationController
       end
     else
       redirect_to settings_profile_path, alert: "Export not ready for download"
+    end
+  end
+
+  def destroy
+    @export.destroy!
+    
+    respond_to do |format|
+      format.html { redirect_to settings_profile_path, notice: "Export deleted successfully." }
+      format.turbo_stream {
+        stream_redirect_to settings_profile_path, notice: "Export deleted successfully."
+      }
     end
   end
 

@@ -54,6 +54,8 @@ services:
       dockerfile: Dockerfile
     image: maybe-local:worker
     command: bundle exec sidekiq
+    volumes:
+      - app-storage:/rails/storage
     restart: unless-stopped
     depends_on:
       redis:

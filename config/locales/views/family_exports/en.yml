@@ -1,0 +1,31 @@
+---
+en:
+  family_exports:
+    new:
+      title: "Export your data"
+      subtitle: "Download all your financial data"
+      whats_included: "What's included:"
+      all_accounts_and_balances: "All accounts and balances"
+      transaction_history: "Transaction history"
+      investment_trades: "Investment trades"
+      categories_and_tags: "Categories and tags"
+      note_title: "Note:"
+      note_text: "This export includes all of your data, but only some of the data can be imported back into Maybe via the CSV import feature. We support account, transaction (with category and tags), and trade imports. Other account data cannot be imported and is for your records only."
+      cancel: "Cancel"
+      export_data: "Export data"
+    index:
+      title: "Data Import/Export"
+      export_data: "Export data"
+      no_exports: "No exports yet"
+      exporting: "Exporting..."
+      download: "Download"
+      failed: "Failed"
+      delete: "Delete export"
+      delete_confirm: "Are you sure you want to delete this export?"
+    create:
+      export_started: "Export started. You'll be able to download it shortly."
+    download:
+      file_not_found: "Export file not found. Please create a new export."
+      not_ready: "Export not ready for download"
+    destroy:
+      deleted: "Export deleted successfully."

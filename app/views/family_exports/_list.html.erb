@@ -16,37 +16,37 @@
             <% if export.processing? || export.pending? %>
               <div class="flex items-center gap-2 text-secondary">
                 <div class="animate-spin h-4 w-4 border-2 border-secondary border-t-transparent rounded-full"></div>
-                <span class="text-sm">Exporting...</span>
+                <span class="text-sm"><%= t("family_exports.index.exporting") %></span>
               </div>
             <% elsif export.completed? %>
               <%= link_to download_family_export_path(export),
                   class: "flex items-center gap-2 text-primary hover:text-primary-hover",
                   data: { turbo_frame: "_top" } do %>
                 <%= icon "download", class: "w-5 h-5" %>
-                <span class="text-sm font-medium">Download</span>
+                <span class="text-sm font-medium"><%= t("family_exports.index.download") %></span>
               <% end %>
             <% elsif export.failed? %>
               <div class="flex items-center gap-2 text-destructive">
                 <%= icon "alert-circle", class: "w-4 h-4" %>
-                <span class="text-sm">Failed</span>
+                <span class="text-sm"><%= t("family_exports.index.failed") %></span>
               </div>
             <% end %>
 
             <%= link_to family_export_path(export),
                 method: :delete,
                 data: { 
-                  confirm: "Are you sure you want to delete this export?",
+                  confirm: t("family_exports.index.delete_confirm"),
                   turbo_method: :delete
                 },
                 class: "flex items-center justify-center w-8 h-8 text-destructive hover:text-destructive-hover hover:bg-destructive/10 rounded-md transition-colors",
-                title: "Delete export" do %>
+                title: t("family_exports.index.delete") do %>
               <%= icon "trash-2", class: "w-4 h-4" %>
             <% end %>
           </div>
         </div>
       <% end %>
     <% else %>
-      <p class="text-sm text-secondary text-center py-4">No exports yet</p>
+      <p class="text-sm text-secondary text-center py-4"><%= t("family_exports.index.no_exports") %></p>
     <% end %>
   </div>
 <% end %>

@@ -35,6 +35,10 @@ zh-CN:
         confirm_reset:
           body: 您确定要重置您的账户吗？这将删除您所有的账户、分类、商户、标签和其他数据。此操作无法撤销。
           title: 重置账户？
+        confirm_reset_simple:
+          body: 这将删除与您的账户相关的所有数据。您的用户资料将保持活跃状态。
+          title: 重置账户？
+          btn_text: 重置账户
         confirm_remove_invitation:
           body: 您确定要移除 %{email} 的邀请吗？
           title: 移除邀请
@@ -62,6 +66,14 @@ zh-CN:
         remove_invitation: 移除邀请
         remove_member: 移除成员
         save: 保存
+        user_avatar_field:
+          accepted_formats: JPG或PNG格式。最大5MB。
+          choose: 上传照片
+          choose_label: (可选)
+          change: 更换照片
+        data_import_export:
+          title: "数据导入/导出"
+          export_data: "导出数据"
     securities:
       show:
         page_title: 安全
@@ -133,8 +145,3 @@ zh-CN:
     settings_nav_link_large:
       next: 下一步
       previous: 返回
-    user_avatar_field:
-      accepted_formats: JPG或PNG格式。最大5MB。
-      choose: 上传照片
-      choose_label: (可选)
-      change: 更换照片

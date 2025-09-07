@@ -13,9 +13,9 @@ class FamilyExportsController < ApplicationController
     FamilyDataExportJob.perform_later(@export)
 
     respond_to do |format|
-      format.html { redirect_to settings_profile_path, notice: "Export started. You'll be able to download it shortly." }
+      format.html { redirect_to settings_profile_path, notice: t("family_exports.create.export_started") }
       format.turbo_stream {
-        stream_redirect_to settings_profile_path, notice: "Export started. You'll be able to download it shortly."
+        stream_redirect_to settings_profile_path, notice: t("family_exports.create.export_started")
       }
     end
   end
@@ -42,15 +42,15 @@ class FamilyExportsController < ApplicationController
       rescue ActiveStorage::FileNotFoundError
         # File doesn't exist, mark export as failed and show error
         @export.update!(status: :failed)
-        redirect_to settings_profile_path, alert: "Export file not found. Please create a new export."
+        redirect_to settings_profile_path, alert: t("family_exports.download.file_not_found")
       rescue => e
         # Handle any other errors
         Rails.logger.error "Export download failed: #{e.message}"
         @export.update!(status: :failed)
-        redirect_to settings_profile_path, alert: "Export file not found. Please create a new export."
+        redirect_to settings_profile_path, alert: t("family_exports.download.file_not_found")
       end
     else
-      redirect_to settings_profile_path, alert: "Export not ready for download"
+      redirect_to settings_profile_path, alert: t("family_exports.download.not_ready")
     end
   end
 
@@ -58,9 +58,9 @@ class FamilyExportsController < ApplicationController
     @export.destroy!
     
     respond_to do |format|
-      format.html { redirect_to settings_profile_path, notice: "Export deleted successfully." }
+      format.html { redirect_to settings_profile_path, notice: t("family_exports.destroy.deleted") }
       format.turbo_stream {
-        stream_redirect_to settings_profile_path, notice: "Export deleted successfully."
+        stream_redirect_to settings_profile_path, notice: t("family_exports.destroy.deleted")
       }
     end
   end

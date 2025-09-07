@@ -36,6 +36,15 @@ Rails.application.configure do
   # Set Active Storage URL expiration time to 7 days
   config.active_storage.urls_expire_in = 7.days
 
+  # Configure Active Storage URL options for proper file serving
+  config.after_initialize do
+    host = ENV["APP_DOMAIN"].presence || "localhost:3000"
+    ActiveStorage::Current.url_options = { 
+      host: host,
+      protocol: (config.force_ssl && !host.include?("localhost")) ? 'https' : 'http'
+    }
+  end
+
   # Mount Action Cable outside main process or domain.
   # config.action_cable.mount_path = nil
   # config.action_cable.url = "wss://example.com/cable"

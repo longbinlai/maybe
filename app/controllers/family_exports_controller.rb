@@ -27,7 +27,17 @@ class FamilyExportsController < ApplicationController
 
   def download
     if @export.downloadable?
-      redirect_to @export.export_file, allow_other_host: true
+      begin
+        # Stream the file directly instead of redirecting to Active Storage URL
+        send_data @export.export_file.download, 
+                  filename: @export.filename,
+                  type: @export.export_file.content_type,
+                  disposition: 'attachment'
+      rescue ActiveStorage::FileNotFoundError
+        # File doesn't exist, mark export as failed and show error
+        @export.update!(status: :failed)
+        redirect_to settings_profile_path, alert: "Export file not found. Please create a new export."
+      end
     else
       redirect_to settings_profile_path, alert: "Export not ready for download"
     end

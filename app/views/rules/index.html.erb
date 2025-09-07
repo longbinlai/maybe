@@ -1,11 +1,11 @@
 <header class="flex items-center justify-between">
-  <h1 class="text-primary text-xl font-medium">Rules</h1>
+  <h1 class="text-primary text-xl font-medium"><%= t(".title") %></h1>
   <div class="flex items-center gap-2">
     <% if @rules.any? %>
       <%= render DS::Menu.new do |menu| %>
         <% menu.with_item(
           variant: "button",
-          text: "Delete all rules",
+          text: t(".delete_all"),
           href: destroy_all_rules_path,
           icon: "trash-2",
           method: :delete,
@@ -13,7 +13,7 @@
       <% end %>
     <% end %>
     <%= render DS::Link.new(
-      text: "New rule",
+      text: t(".new_rule"),
       variant: "primary",
       href: new_rule_path(resource_type: "transaction"),
       icon: "plus",
@@ -66,11 +66,11 @@
   <% else %>
     <div class="flex justify-center items-center py-20">
       <div class="text-center flex flex-col items-center max-w-[500px]">
-        <p class="text-sm text-primary font-medium mb-1">No rules yet</p>
-        <p class="text-sm text-secondary mb-4">Set up rules to perform actions to your transactions and other data on every account sync.</p>
+        <p class="text-sm text-primary font-medium mb-1"><%= t(".empty_state.title") %></p>
+        <p class="text-sm text-secondary mb-4"><%= t(".empty_state.description") %></p>
         <div class="flex items-center gap-2">
           <%= render DS::Link.new(
-            text: "New rule",
+            text: t(".empty_state.new_rule"),
             variant: "primary",
             href: new_rule_path(resource_type: "transaction"),
             icon: "plus",

@@ -13,8 +13,8 @@
 <div class="grow max-w-lg w-full mx-auto bg-surface flex flex-col justify-center md:py-0 py-6 px-4 md:px-0">
   <div>
     <div class="space-y-1 mb-6 text-center">
-      <h1 class="text-2xl font-medium md:text-2xl">Let's set up your account</h1>
-      <p class="text-secondary text-sm">First things first, let's get your profile set up.</p>
+      <h1 class="text-2xl font-medium md:text-2xl"><%= t(".profile.title") %></h1>
+      <p class="text-secondary text-sm"><%= t(".profile.subtitle") %></p>
     </div>
 
     <%= styled_form_with model: @user do |form| %>
@@ -43,7 +43,7 @@
         </div>
       <% end %>
 
-      <%= form.submit "Continue" %>
+      <%= form.submit t(".profile.submit") %>
     <% end %>
   </div>
 </div>

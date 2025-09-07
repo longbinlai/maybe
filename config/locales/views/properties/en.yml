@@ -46,6 +46,7 @@ en:
       value: Value
       address: Address
     overview:
+      edit_details: Edit account details
       living_area: Living Area
       market_value: Market Value
       purchase_price: Purchase Price

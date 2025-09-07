@@ -11,6 +11,7 @@ zh-CN:
     form:
       placeholder: 标签名称
     index:
+      delete_all: 删除全部
       empty: 暂无标签
       new: 新建标签
       tags: 标签

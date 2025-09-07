@@ -19,10 +19,19 @@ en:
       last_name: Last Name
       profile_image: Profile Image
       submit: Continue
-      subtitle: Let's complete your profile.
-      title: Let's set up the basics
+      subtitle: First things first, let's get your profile set up.
+      title: Let's set up your account
     show:
-      message: We’re really excited you’re here. In the next step we’ll ask you a
+      message: We're really excited you're here. In the next step we'll ask you a
         few questions to complete your profile and then get you all set up.
       setup: Set up account
       title: Meet Maybe
+    trial:
+      title: Try Maybe for 14 days
+      subtitle: Try Maybe for 14 days.
+      no_credit_card: No credit card required
+      description: Starting the trial activates your account for Maybe. You won't need to enter payment details.
+      try_14_days: Try Maybe for 14 days
+      continue_trial: Continue trial
+      upgrade: Upgrade
+      trial_ends: Your trial ends — subscribe to continue using Maybe

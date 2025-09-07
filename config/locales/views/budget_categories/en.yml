@@ -1,6 +1,9 @@
 ---
 en:
   budget_categories:
+    index:
+      title: Edit your category budgets
+      description: Adjust category budgets to set spending limits. Unallocated funds will be automatically assigned as uncategorized.
     no_categories:
       title: Oops!
       description: You haven't created or assigned any expense categories to your transactions yet.

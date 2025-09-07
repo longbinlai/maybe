@@ -1,0 +1,11 @@
+---
+en:
+  rules:
+    index:
+      title: Rules
+      new_rule: New rule
+      delete_all: Delete all rules
+      empty_state:
+        title: No rules yet
+        description: Set up rules to perform actions to your transactions and other data on every account sync.
+        new_rule: New rule

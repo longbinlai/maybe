@@ -46,6 +46,7 @@ zh-CN:
       value: 价值
       address: 地址
     overview:
+      edit_details: 编辑账户详情
       living_area: 居住面积
       market_value: 市场价值
       purchase_price: 购买价格

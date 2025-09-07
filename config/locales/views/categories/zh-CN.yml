@@ -25,6 +25,7 @@ zh-CN:
       categories: 分类
       categories_expenses: 支出分类
       categories_incomes: 收入分类
+      delete_all: 删除全部
       empty: 未找到分类
       new: 新建分类
     menu:

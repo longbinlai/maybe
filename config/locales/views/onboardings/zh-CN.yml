@@ -19,9 +19,18 @@ zh-CN:
       last_name: 姓氏
       profile_image: 头像
       submit: 继续
-      subtitle: 让我们完善您的个人资料。
-      title: 让我们设置基本信息
+      subtitle: 首先，让我们设置您的个人资料。
+      title: 让我们设置您的账户
     show:
       message: 很高兴见到您。在下一步中，我们将询问您几个问题来完善您的个人资料，然后为您完成所有设置。
       setup: 设置账户
       title: 认识Maybe
+    trial:
+      title: 免费试用Maybe 14天
+      subtitle: 免费试用Maybe 14天。
+      no_credit_card: 无需信用卡
+      description: 开始试用即可激活您的Maybe账户。您无需输入付款详情。
+      try_14_days: 免费试用Maybe 14天
+      continue_trial: 继续试用
+      upgrade: 升级
+      trial_ends: 您的试用期即将结束 — 请订阅以继续使用Maybe

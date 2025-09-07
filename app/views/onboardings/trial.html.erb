@@ -16,35 +16,39 @@
   <div class="max-w-sm mx-auto flex flex-col items-center">
     <%= image_tag "logo-color.png", class: "w-16 mb-6" %>
 
-    <p class="text-xl lg:text-3xl text-primary font-display font-medium">
-      Try Maybe for 14 days.
+        <h1 class="text-2xl lg:text-3xl font-display text-primary font-medium mb-3">
+      <%= t(".trial.title") %>
+    </h1>
+
+    <p class="text-sm text-secondary text-center mb-6">
+      <%= t(".trial.subtitle") %>
     </p>
 
     <h2 class="text-xl lg:text-3xl font-display text-secondary font-medium mb-2">
-      No credit card required
+      <%= t(".trial.no_credit_card") %>
     </h2>
 
     <p class="text-sm text-secondary text-center mb-8">
-      Starting the trial activates your account for Maybe.  You won't need to enter payment details.
+      <%= t(".trial.description") %>
     </p>
 
     <div class="w-full">
       <% if Current.family.can_start_trial? %>
         <%= render DS::Button.new(
-        text: "Try Maybe for 14 days",
+        text: t(".trial.try_14_days"),
         href: subscription_path,
         full_width: true,
         data: { turbo: false }
       ) %>
       <% elsif Current.family.trialing? %>
         <%= render DS::Link.new(
-          text: "Continue trial",
+          text: t(".trial.continue_trial"),
           href: root_path,
           full_width: true,
         ) %>
       <% else %>
         <%= render DS::Link.new(
-          text: "Upgrade",
+          text: t(".trial.upgrade"),
           href: upgrade_subscription_path,
           full_width: true,
         ) %>
@@ -75,7 +79,7 @@
 
         <div class="space-y-1.5 text-sm">
           <p class="text-primary font-medium">In 14 days (<%= 14.days.from_now.strftime("%B %d") %>)</p>
-          <p class="text-secondary">Your trial ends &mdash; subscribe to continue using Maybe</p>
+          <p class="text-secondary"><%= t(".trial.trial_ends") %></p>
         </div>
       </div>
     </div>

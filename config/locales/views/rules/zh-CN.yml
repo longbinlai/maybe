@@ -1,0 +1,11 @@
+---
+zh-CN:
+  rules:
+    index:
+      title: 规则
+      new_rule: 新建规则
+      delete_all: 删除所有规则
+      empty_state:
+        title: 暂无规则
+        description: 设置规则以在每次账户同步时对您的交易和其他数据执行操作。
+        new_rule: 新建规则

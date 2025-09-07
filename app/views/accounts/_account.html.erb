@@ -42,7 +42,7 @@
 
       <% if account.draft? %>
         <%= render DS::Link.new(
-          text: "Complete setup",
+          text: t("accounts.show.header.complete_setup"),
           href: edit_account_path(account, return_to: return_to),
           variant: :outline,
           frame: :modal

@@ -34,6 +34,12 @@ class Settings::ExchangeRatesController < ApplicationController
     @exchange_rate = ExchangeRate.new(exchange_rate_params)
     
     if @exchange_rate.save
+      # Update cache when manually creating rates
+      ExchangeRate.update_rate_cache(
+        from: @exchange_rate.from_currency, 
+        to: @exchange_rate.to_currency, 
+        rate: @exchange_rate
+      )
       redirect_to settings_exchange_rates_path, notice: t(".success")
     else
       redirect_to settings_exchange_rates_path, alert: t(".error")
@@ -42,7 +48,14 @@ class Settings::ExchangeRatesController < ApplicationController
 
   def destroy
     @exchange_rate = ExchangeRate.find(params[:id])
+    from_currency = @exchange_rate.from_currency
+    to_currency = @exchange_rate.to_currency
+    
     @exchange_rate.destroy
+    
+    # Clear cache when deleting rates
+    ExchangeRate.clear_rate_cache(from: from_currency, to: to_currency)
+    
     redirect_to settings_exchange_rates_path, notice: t(".deleted")
   end
 
@@ -127,6 +140,12 @@ class Settings::ExchangeRatesController < ApplicationController
           
           if exchange_rate.save
             success_count += 1
+            # Update cache when manually syncing rates
+            ExchangeRate.update_rate_cache(
+              from: exchange_rate.from_currency, 
+              to: exchange_rate.to_currency, 
+              rate: exchange_rate
+            )
           else
             error_count += 1
             Rails.logger.error "Failed to save rate #{from_currency} -> #{to_currency}: #{exchange_rate.errors.full_messages.join(', ')}"

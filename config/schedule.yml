@@ -18,3 +18,9 @@ run_security_health_checks:
   class: "SecurityHealthCheckJob"
   queue: "scheduled"
   description: "Runs security health checks to detect issues with security data"
+
+sync_prices:
+  cron: "0 23 * * 1-5" # 6:00 PM EST / 7:00 PM EDT (NY time) Monday through Friday
+  class: "SyncPricesJob"
+  queue: "scheduled"
+  description: "Syncs security prices and exchange rates from yfinance daily"

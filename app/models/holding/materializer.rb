@@ -32,21 +32,28 @@ class Holding::Materializer
       account.holdings.upsert_all(
         @holdings.map { |h| h.attributes
                .slice("date", "currency", "qty", "price", "amount", "security_id")
-               .merge("account_id" => account.id, "updated_at" => current_time) },
+               .merge("account_id" => account.id, "updated_at" => current_time, "source" => "trade") },
         unique_by: %i[account_id security_id date currency]
       )
     end
 
     def purge_stale_holdings
       portfolio_security_ids = account.entries.trades.map { |entry| entry.entryable.security_id }.uniq
+      manual_security_ids = account.holdings.manual.pluck(:security_id).uniq
+      all_security_ids = (portfolio_security_ids + manual_security_ids).uniq
 
-      # If there are no securities in the portfolio, delete all holdings
-      if portfolio_security_ids.empty?
-        Rails.logger.info("Clearing all holdings (no securities)")
-        account.holdings.delete_all
+      # If there are no securities in the portfolio AND no manual holdings, delete all trade holdings
+      if all_security_ids.empty?
+        Rails.logger.info("Clearing all trade holdings (no securities)")
+        account.holdings.trade.delete_all
       else
-        deleted_count = account.holdings.delete_by("date < ? OR security_id NOT IN (?)", account.start_date, portfolio_security_ids)
-        Rails.logger.info("Purged #{deleted_count} stale holdings") if deleted_count > 0
+        # Only purge trade holdings, preserve manual holdings
+        deleted_count = account.holdings.trade.delete_by(
+          "date < ? OR security_id NOT IN (?)",
+          account.start_date,
+          all_security_ids
+        )
+        Rails.logger.info("Purged #{deleted_count} stale trade holdings") if deleted_count > 0
       end
     end
 

@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 class Api::V1::ExchangeRatesController < Api::V1::BaseController
-  before_action :ensure_read_scope
+  before_action :ensure_read_scope, only: [ :index ]
+  before_action :ensure_read_write_scope, only: [ :create ]
 
   def index
     family = current_resource_owner.family
@@ -27,14 +28,55 @@ class Api::V1::ExchangeRatesController < Api::V1::BaseController
     end
 
     render :index
-  rescue => e
-    Rails.logger.error "ExchangeRatesController error: #{e.message}"
-    render json: { error: "internal_server_error", message: e.message }, status: :internal_server_error
+  end
+
+  # POST /api/v1/exchange_rates — create or update a rate
+  def create
+    from_currency = params[:from_currency]
+    to_currency = params[:to_currency]
+    rate = params[:rate].to_d
+    date = params[:date] || Date.current
+
+    # Create or update the rate
+    exchange_rate = ExchangeRate.find_or_initialize_by(
+      from_currency: from_currency,
+      to_currency: to_currency,
+      date: date
+    )
+    exchange_rate.rate = rate
+
+    if exchange_rate.save
+      # Also create the reverse rate
+      reverse_rate = ExchangeRate.find_or_initialize_by(
+        from_currency: to_currency,
+        to_currency: from_currency,
+        date: date
+      )
+      reverse_rate.rate = 1.0 / rate
+      reverse_rate.save
+
+      render json: {
+        status: "ok",
+        rate: {
+          from_currency: from_currency,
+          to_currency: to_currency,
+          rate: rate.to_f,
+          date: date.iso8601,
+          reverse_rate: (1.0 / rate).to_f
+        }
+      }, status: :created
+    else
+      render json: { error: exchange_rate.errors.full_messages.join(", ") }, status: :unprocessable_entity
+    end
   end
 
   private
 
     def ensure_read_scope
       authorize_scope!(:read)
+    end
+
+    def ensure_read_write_scope
+      authorize_scope!(:read_write)
     end
 end

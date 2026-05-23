@@ -23,6 +23,7 @@ json.holdings @holdings do |holding|
   json.avg_cost holding.avg_cost.amount.to_f
   json.date holding.date.iso8601
   json.currency holding.currency
+  json.source holding.source
 
   # Trend (unrealized gain/loss)
   trend = holding.trend

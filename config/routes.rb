@@ -223,7 +223,9 @@ Rails.application.routes.draw do
       resource :usage, only: [ :show ], controller: "usage"
 
       # Investment data endpoints
-      resources :holdings, only: [ :index ]
+      resources :holdings, only: [ :index, :create, :update, :destroy ] do
+        post :sync_prices, on: :collection
+      end
       resources :trades, only: [ :index ]
       resources :securities, only: [ :index, :show ]
 
@@ -232,7 +234,7 @@ Rails.application.routes.draw do
       resource :income_statement, only: [ :show ], controller: "income_statement"
 
       # Market data endpoints
-      resources :exchange_rates, only: [ :index ]
+      resources :exchange_rates, only: [ :index, :create ]
 
       # Reference data endpoints
       resources :categories, only: [ :index ]

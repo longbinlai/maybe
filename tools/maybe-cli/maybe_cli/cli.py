@@ -498,5 +498,259 @@ def _find_account(accounts: list[dict], query: str) -> dict | None:
     return None
 
 
+# ── Holding management group ────────────────────────────────────────────
+
+@main.group("holding")
+def holding_group():
+    """Manage investment holdings (add, update, delete, sync prices)."""
+    pass
+
+
+@holding_group.command("add")
+@_api_key_opt
+@_url_opt
+@click.option("--account", "account_name", required=True, help="Account name (fuzzy match)")
+@click.option("--ticker", required=True, help="Security ticker (e.g. AAPL, 9988.HK)")
+@click.option("--qty", required=True, type=float, help="Number of shares")
+@click.option("--price", type=float, default=None, help="Price per share (auto-fetched if omitted)")
+@click.option("--avg-cost", type=float, default=None, help="Average cost basis per share")
+@click.option("--date", default=None, help="Holding date (YYYY-MM-DD)")
+@click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
+def holding_add(api_key, url, account_name, ticker, qty, price, avg_cost, date, as_json):
+    """Add a holding to an investment account.
+
+    Example:
+        maybe holding add --account 长桥R --ticker AAPL --qty 100 --price 150
+        maybe holding add --account 日本投资 --ticker 7203.T --qty 200
+    """
+    c = _client(api_key, url)
+    accs = c.accounts().get("accounts", [])
+    match = _find_account(accs, account_name)
+    if not match:
+        click.echo(f"Error: No account matching '{account_name}'", err=True)
+        c.close()
+        raise SystemExit(1)
+
+    try:
+        result = c.create_holding(
+            account_id=match["id"], ticker=ticker, qty=qty,
+            price=price, avg_cost=avg_cost, date=date
+        )
+        c.close()
+    except Exception as e:
+        click.echo(f"Error creating holding: {e}", err=True)
+        c.close()
+        raise SystemExit(1)
+
+    if as_json:
+        click.echo(json.dumps(result, indent=2, default=str))
+    else:
+        h = result.get("holding", {})
+        sec = h.get("security", {})
+        click.echo(f"✅ Added holding: {sec.get('ticker')} × {_float(h.get('qty')):.0f}")
+        click.echo(f"   Price:  {_fmt_num(h.get('price'))} {h.get('currency', '')}")
+        click.echo(f"   Value:  {_fmt_num(h.get('amount'))} {h.get('currency', '')}")
+        click.echo(f"   Weight: {_float(h.get('weight')):.1f}%")
+        click.echo(f"   Source: manual")
+        acct = result.get("account", {})
+        click.echo(f"   Account cash: {_fmt_num(acct.get('cash_balance'))} {match['currency']}")
+
+
+@holding_group.command("update")
+@_api_key_opt
+@_url_opt
+@click.option("--account", "account_name", required=True, help="Account name")
+@click.option("--ticker", required=True, help="Security ticker to update")
+@click.option("--qty", type=float, default=None, help="New quantity")
+@click.option("--price", type=float, default=None, help="New price")
+@click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
+def holding_update(api_key, url, account_name, ticker, qty, price, as_json):
+    """Update an existing holding.
+
+    Example:
+        maybe holding update --account 长桥R --ticker AAPL --qty 120
+        maybe holding update --account 长桥R --ticker AAPL --price 160
+    """
+    c = _client(api_key, url)
+    accs = c.accounts().get("accounts", [])
+    match = _find_account(accs, account_name)
+    if not match:
+        click.echo(f"Error: No account matching '{account_name}'", err=True)
+        c.close()
+        raise SystemExit(1)
+
+    # Find the holding
+    hs = c.holdings(account_id=match["id"]).get("holdings", [])
+    target = None
+    for h in hs:
+        if h.get("security", {}).get("ticker", "").upper() == ticker.upper():
+            target = h
+            break
+
+    if not target:
+        click.echo(f"Error: No holding for {ticker} in {match['name']}", err=True)
+        c.close()
+        raise SystemExit(1)
+
+    try:
+        result = c.update_holding(
+            holding_id=target["id"], qty=qty, price=price
+        )
+        c.close()
+    except Exception as e:
+        click.echo(f"Error updating holding: {e}", err=True)
+        c.close()
+        raise SystemExit(1)
+
+    if as_json:
+        click.echo(json.dumps(result, indent=2, default=str))
+    else:
+        h = result.get("holding", {})
+        sec = h.get("security", {})
+        click.echo(f"✅ Updated: {sec.get('ticker')}")
+        click.echo(f"   Qty:    {_float(h.get('qty')):.0f}")
+        click.echo(f"   Price:  {_fmt_num(h.get('price'))} {h.get('currency', '')}")
+        click.echo(f"   Value:  {_fmt_num(h.get('amount'))} {h.get('currency', '')}")
+        click.echo(f"   Weight: {_float(h.get('weight')):.1f}%")
+
+
+@holding_group.command("delete")
+@_api_key_opt
+@_url_opt
+@click.option("--account", "account_name", required=True, help="Account name")
+@click.option("--ticker", required=True, help="Security ticker to delete")
+@click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
+def holding_delete(api_key, url, account_name, ticker, as_json):
+    """Delete a manual holding.
+
+    Example:
+        maybe holding delete --account 长桥R --ticker AAPL
+    """
+    c = _client(api_key, url)
+    accs = c.accounts().get("accounts", [])
+    match = _find_account(accs, account_name)
+    if not match:
+        click.echo(f"Error: No account matching '{account_name}'", err=True)
+        c.close()
+        raise SystemExit(1)
+
+    hs = c.holdings(account_id=match["id"]).get("holdings", [])
+    target = None
+    for h in hs:
+        if h.get("security", {}).get("ticker", "").upper() == ticker.upper():
+            target = h
+            break
+
+    if not target:
+        click.echo(f"Error: No holding for {ticker} in {match['name']}", err=True)
+        c.close()
+        raise SystemExit(1)
+
+    try:
+        result = c.delete_holding(target["id"])
+        c.close()
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        c.close()
+        raise SystemExit(1)
+
+    if as_json:
+        click.echo(json.dumps(result, indent=2, default=str))
+    else:
+        click.echo(f"✅ Deleted {ticker} from {match['name']}")
+
+
+@holding_group.command("sync")
+@_api_key_opt
+@_url_opt
+@click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
+def holding_sync(api_key, url, as_json):
+    """Sync security prices from Yahoo Finance.
+
+    Updates all holdings with latest market prices.
+    """
+    c = _client(api_key, url)
+    try:
+        result = c.sync_prices()
+        c.close()
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        c.close()
+        raise SystemExit(1)
+
+    if as_json:
+        click.echo(json.dumps(result, indent=2, default=str))
+    else:
+        r = result.get("results", {})
+        updated = r.get("updated", [])
+        skipped = r.get("skipped", [])
+        errors = r.get("errors", [])
+
+        click.echo(f"✅ Price sync complete")
+        click.echo(f"   Updated: {len(updated)}")
+        click.echo(f"   Skipped: {len(skipped)}")
+        click.echo(f"   Errors:  {len(errors)}")
+
+        if updated:
+            click.echo()
+            for u in updated:
+                click.echo(f"   {u['ticker']:10s} {u['account']:20s} {_float(u.get('old_price', 0)):.2f} → {_float(u.get('new_price', 0)):.2f}")
+
+        if errors:
+            click.echo()
+            click.echo("Errors:")
+            for e in errors:
+                click.echo(f"   {e['ticker']:10s} {e['error']}")
+
+
+@holding_group.command("rate")
+@_api_key_opt
+@_url_opt
+@click.option("--from", "from_currency", required=True, help="From currency (e.g. USD)")
+@click.option("--to", "to_currency", required=True, help="To currency (e.g. CNY)")
+@click.option("--rate", "rate_value", type=float, default=None, help="Rate value (auto-fetched from yfinance if omitted)")
+@click.option("--date", default=None, help="Date (YYYY-MM-DD)")
+@click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
+def holding_rate(api_key, url, from_currency, to_currency, rate_value, date, as_json):
+    """Set exchange rate (auto-fetched from Yahoo Finance if rate not provided).
+
+    Example:
+        maybe holding rate --from USD --to CNY
+        maybe holding rate --from USD --to CNY --rate 7.24
+    """
+    if rate_value is None:
+        # Fetch from yfinance
+        try:
+            import yfinance as yf
+            ticker = f"{from_currency}{to_currency}=X"
+            t = yf.Ticker(ticker)
+            hist = t.history(period="5d")
+            if hist.empty:
+                click.echo(f"Error: Could not fetch rate for {from_currency}/{to_currency}", err=True)
+                raise SystemExit(1)
+            rate_value = float(hist["Close"].iloc[-1])
+            click.echo(f"Fetched rate: {from_currency}/{to_currency} = {rate_value:.4f}")
+        except ImportError:
+            click.echo("Error: yfinance not installed. Provide --rate or install yfinance.", err=True)
+            raise SystemExit(1)
+
+    c = _client(api_key, url)
+    try:
+        result = c.create_exchange_rate(from_currency, to_currency, rate_value, date=date)
+        c.close()
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        c.close()
+        raise SystemExit(1)
+
+    if as_json:
+        click.echo(json.dumps(result, indent=2, default=str))
+    else:
+        r = result.get("rate", {})
+        click.echo(f"✅ Exchange rate set:")
+        click.echo(f"   {r.get('from_currency')}/{r.get('to_currency')} = {r.get('rate'):.4f}")
+        click.echo(f"   {r.get('to_currency')}/{r.get('from_currency')} = {r.get('reverse_rate'):.4f}")
+
+
 if __name__ == "__main__":
     main()

@@ -116,6 +116,34 @@ maybe accounts --json | jq '.accounts[].id'   # Get account IDs first
 maybe balance-history --account-id <uuid> --interval monthly
 ```
 
+### Holdings Management (Manual)
+
+```bash
+# Add a holding to an investment account
+maybe holding add --account "长桥R" --ticker AAPL --qty 100 --price 150
+maybe holding add --account "日本投资" --ticker 7203.T --qty 200
+# If --price omitted, auto-fetched from Yahoo Finance
+
+# Update a holding (change qty or price)
+maybe holding update --account "长桥R" --ticker AAPL --qty 120
+maybe holding update --account "长桥R" --ticker AAPL --price 160
+
+# Delete a manual holding
+maybe holding delete --account "长桥R" --ticker AAPL
+
+# Sync all holding prices from Yahoo Finance
+maybe holding sync
+```
+
+### Exchange Rate Management
+
+```bash
+# Set exchange rate (auto-fetched from Yahoo Finance if --rate omitted)
+maybe holding rate --from USD --to CNY
+maybe holding rate --from USD --to CNY --rate 7.24
+maybe holding rate --from USD --to AUD --rate 1.55
+```
+
 ## Workflows
 
 ### Quick Financial Check
@@ -185,6 +213,51 @@ Compose a brief report:
 - Savings rate
 - Top expense categories
 - Portfolio status
+
+### Setting Up Investment Holdings
+
+When user wants to record specific stock/fund positions in an investment account:
+
+**Step 1 — Show current state:**
+```bash
+maybe holdings --account-id <uuid> --json
+maybe accounts --json
+```
+
+**Step 2 — Add holdings from user input:**
+```bash
+maybe holding add --account "长桥R" --ticker AAPL --qty 100 --price 150
+maybe holding add --account "长桥R" --ticker BABA --qty 50 --price 80
+```
+
+**Step 3 — Verify and report:**
+```bash
+maybe holdings --json
+```
+
+Present the portfolio composition:
+```
+✅ Portfolio updated for 长桥R:
+  AAPL:  100 shares × $150.00 = $15,000 (14.3%)
+  BABA:  50 shares × $80.00  = $4,000  (3.8%)
+  Cash:  $86,000              (81.9%)
+  Total: $105,000
+```
+
+### Syncing Prices
+
+When user asks to update stock prices:
+```bash
+maybe holding sync    # Fetches latest from Yahoo Finance
+```
+
+### Setting Exchange Rates
+
+When user mentions exchange rates:
+```bash
+maybe holding rate --from USD --to CNY    # Auto-fetch
+maybe holding rate --from USD --to JPY    # Auto-fetch
+```
 
 ## Error Handling
 

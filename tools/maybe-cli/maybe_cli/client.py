@@ -147,5 +147,47 @@ class MaybeClient:
     def tags(self) -> dict:
         return self._get("tags")
 
+    # ── Holdings management ──
+
+    def create_holding(self, account_id: str, ticker: str, qty: float,
+                       price: float | None = None, avg_cost: float | None = None,
+                       date: str | None = None, name: str | None = None) -> dict:
+        data = {"account_id": account_id, "ticker": ticker, "qty": qty}
+        if price is not None:
+            data["price"] = price
+        if avg_cost is not None:
+            data["avg_cost"] = avg_cost
+        if date:
+            data["date"] = date
+        if name:
+            data["name"] = name
+        return self._post("holdings", data)
+
+    def update_holding(self, holding_id: str, qty: float | None = None,
+                       price: float | None = None, date: str | None = None) -> dict:
+        data = {}
+        if qty is not None:
+            data["qty"] = qty
+        if price is not None:
+            data["price"] = price
+        if date:
+            data["date"] = date
+        return self._patch(f"holdings/{holding_id}", data)
+
+    def delete_holding(self, holding_id: str) -> dict:
+        resp = self._client.delete(f"/api/v1/holdings/{holding_id}")
+        resp.raise_for_status()
+        return resp.json()
+
+    def sync_prices(self) -> dict:
+        return self._post("holdings/sync_prices", {})
+
+    def create_exchange_rate(self, from_currency: str, to_currency: str,
+                             rate: float, date: str | None = None) -> dict:
+        data = {"from_currency": from_currency, "to_currency": to_currency, "rate": rate}
+        if date:
+            data["date"] = date
+        return self._post("exchange_rates", data)
+
     def close(self):
         self._client.close()

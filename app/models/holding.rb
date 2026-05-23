@@ -11,6 +11,8 @@ class Holding < ApplicationRecord
 
   scope :chronological, -> { order(:date) }
   scope :for, ->(security) { where(security_id: security).order(:date) }
+  scope :manual, -> { where(source: 'manual') }
+  scope :trade, -> { where(source: 'trade') }
 
   delegate :ticker, to: :security
 
@@ -58,6 +60,24 @@ class Holding < ApplicationRecord
     end
 
     account.sync_later
+  end
+
+  def is_manual?
+    source == 'manual'
+  end
+
+  def update_price!(new_price)
+    return unless new_price.present? && new_price > 0
+
+    self.price = new_price
+    self.amount = qty * new_price
+    save!
+  end
+
+  # Update holdings value while preserving quantity
+  def recalculate_amount!
+    self.amount = qty * price
+    save!
   end
 
   private

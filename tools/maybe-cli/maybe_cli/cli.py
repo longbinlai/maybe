@@ -511,13 +511,16 @@ def holding_group():
 @_url_opt
 @click.option("--account", "account_name", required=True, help="Account name (fuzzy match)")
 @click.option("--ticker", required=True, help="Security ticker (e.g. AAPL, 9988.HK)")
-@click.option("--qty", required=True, type=float, help="Number of shares")
+@click.option("--qty", required=True, type=float, help="Number of shares to buy")
 @click.option("--price", type=float, default=None, help="Price per share (auto-fetched if omitted)")
 @click.option("--avg-cost", type=float, default=None, help="Average cost basis per share")
 @click.option("--date", default=None, help="Holding date (YYYY-MM-DD)")
 @click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
 def holding_add(api_key, url, account_name, ticker, qty, price, avg_cost, date, as_json):
-    """Add a holding to an investment account.
+    """Buy shares in an investment account.
+
+    Cash decreases by (qty × price), total balance stays the same.
+    If the ticker already exists in the account, it updates the position.
 
     Example:
         maybe holding add --account 长桥R --ticker AAPL --qty 100 --price 150
@@ -538,7 +541,7 @@ def holding_add(api_key, url, account_name, ticker, qty, price, avg_cost, date, 
         )
         c.close()
     except Exception as e:
-        click.echo(f"Error creating holding: {e}", err=True)
+        click.echo(f"Error: {e}", err=True)
         c.close()
         raise SystemExit(1)
 
@@ -547,13 +550,21 @@ def holding_add(api_key, url, account_name, ticker, qty, price, avg_cost, date, 
     else:
         h = result.get("holding", {})
         sec = h.get("security", {})
-        click.echo(f"✅ Added holding: {sec.get('ticker')} × {_float(h.get('qty')):.0f}")
-        click.echo(f"   Price:  {_fmt_num(h.get('price'))} {h.get('currency', '')}")
-        click.echo(f"   Value:  {_fmt_num(h.get('amount'))} {h.get('currency', '')}")
-        click.echo(f"   Weight: {_float(h.get('weight')):.1f}%")
-        click.echo(f"   Source: manual")
         acct = result.get("account", {})
-        click.echo(f"   Account cash: {_fmt_num(acct.get('cash_balance'))} {match['currency']}")
+        action = result.get("action", "bought")
+
+        if action == "updated":
+            click.echo(f"✅ Updated position: {sec.get('ticker')} × {_float(h.get('qty')):.0f}")
+        else:
+            click.echo(f"✅ Bought: {sec.get('ticker')} × {_float(h.get('qty')):.0f}")
+
+        click.echo(f"   Price:  {_fmt_num(h.get('price'))} {h.get('currency', '')}")
+        click.echo(f"   Cost:   {_fmt_num(h.get('amount'))} {h.get('currency', '')}")
+        click.echo()
+        click.echo(f"   Account: {acct.get('name')}")
+        click.echo(f"   Total:   {_fmt_num(acct.get('total_balance'))} {acct.get('currency', '')}")
+        click.echo(f"   Stocks:  {_fmt_num(acct.get('holdings_value'))} {acct.get('currency', '')}")
+        click.echo(f"   Cash:    {_fmt_num(acct.get('cash'))} {acct.get('currency', '')}")
 
 
 @holding_group.command("update")
@@ -561,15 +572,20 @@ def holding_add(api_key, url, account_name, ticker, qty, price, avg_cost, date, 
 @_url_opt
 @click.option("--account", "account_name", required=True, help="Account name")
 @click.option("--ticker", required=True, help="Security ticker to update")
-@click.option("--qty", type=float, default=None, help="New quantity")
-@click.option("--price", type=float, default=None, help="New price")
+@click.option("--qty", type=float, default=None, help="New quantity (buy more or sell some)")
+@click.option("--price", type=float, default=None, help="New price per share")
 @click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
 def holding_update(api_key, url, account_name, ticker, qty, price, as_json):
-    """Update an existing holding.
+    """Update position: change quantity (buy more/sell some) or update price.
+
+    - Increasing qty: cash decreases (buying more)
+    - Decreasing qty: cash increases (selling some)
+    - Price change only: cash unchanged, holdings value changes
 
     Example:
-        maybe holding update --account 长桥R --ticker AAPL --qty 120
-        maybe holding update --account 长桥R --ticker AAPL --price 160
+        maybe holding update --account 长桥R --ticker AAPL --qty 120    # buy 20 more
+        maybe holding update --account 长桥R --ticker AAPL --qty 80     # sell 20
+        maybe holding update --account 长桥R --ticker AAPL --price 160  # price update
     """
     c = _client(api_key, url)
     accs = c.accounts().get("accounts", [])
@@ -598,7 +614,7 @@ def holding_update(api_key, url, account_name, ticker, qty, price, as_json):
         )
         c.close()
     except Exception as e:
-        click.echo(f"Error updating holding: {e}", err=True)
+        click.echo(f"Error: {e}", err=True)
         c.close()
         raise SystemExit(1)
 
@@ -607,11 +623,123 @@ def holding_update(api_key, url, account_name, ticker, qty, price, as_json):
     else:
         h = result.get("holding", {})
         sec = h.get("security", {})
-        click.echo(f"✅ Updated: {sec.get('ticker')}")
-        click.echo(f"   Qty:    {_float(h.get('qty')):.0f}")
-        click.echo(f"   Price:  {_fmt_num(h.get('price'))} {h.get('currency', '')}")
-        click.echo(f"   Value:  {_fmt_num(h.get('amount'))} {h.get('currency', '')}")
-        click.echo(f"   Weight: {_float(h.get('weight')):.1f}%")
+        acct = result.get("account", {})
+        action = result.get("action", "updated")
+
+        action_labels = {
+            "bought_more": "📈 Bought more shares",
+            "sold_some": "📉 Sold some shares",
+            "sold_all": "💰 Sold all shares",
+            "price_updated": "💲 Price updated"
+        }
+        click.echo(f"✅ {action_labels.get(action, action)}: {sec.get('ticker', ticker)}")
+
+        if h:
+            click.echo(f"   Qty:    {_float(h.get('qty')):.0f}")
+            click.echo(f"   Price:  {_fmt_num(h.get('price'))} {h.get('currency', '')}")
+            click.echo(f"   Value:  {_fmt_num(h.get('amount'))} {h.get('currency', '')}")
+
+        click.echo()
+        click.echo(f"   Account: {acct.get('name')}")
+        click.echo(f"   Total:   {_fmt_num(acct.get('total_balance'))} {acct.get('currency', '')}")
+        click.echo(f"   Stocks:  {_fmt_num(acct.get('holdings_value'))} {acct.get('currency', '')}")
+        click.echo(f"   Cash:    {_fmt_num(acct.get('cash'))} {acct.get('currency', '')}")
+
+
+@holding_group.command("sell")
+@_api_key_opt
+@_url_opt
+@click.option("--account", "account_name", required=True, help="Account name")
+@click.option("--ticker", required=True, help="Security ticker to sell")
+@click.option("--qty", type=float, default=None, help="Shares to sell (omit to sell all)")
+@click.option("--price", type=float, default=None, help="Sale price per share")
+@click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
+def holding_sell(api_key, url, account_name, ticker, qty, price, as_json):
+    """Sell shares. Cash increases, holdings decrease.
+
+    - If --qty omitted: sell all shares (delete the holding)
+    - If --qty given: sell that many shares (reduce position)
+
+    Example:
+        maybe holding sell --account 长桥R --ticker AAPL              # sell all
+        maybe holding sell --account 长桥R --ticker AAPL --qty 30     # sell 30 shares
+        maybe holding sell --account 长桥R --ticker AAPL --price 160  # sell all at $160
+    """
+    c = _client(api_key, url)
+    accs = c.accounts().get("accounts", [])
+    match = _find_account(accs, account_name)
+    if not match:
+        click.echo(f"Error: No account matching '{account_name}'", err=True)
+        c.close()
+        raise SystemExit(1)
+
+    # Find the holding
+    hs = c.holdings(account_id=match["id"]).get("holdings", [])
+    target = None
+    for h in hs:
+        if h.get("security", {}).get("ticker", "").upper() == ticker.upper():
+            target = h
+            break
+
+    if not target:
+        click.echo(f"Error: No holding for {ticker} in {match['name']}", err=True)
+        c.close()
+        raise SystemExit(1)
+
+    current_qty = _float(target.get("quantity", 0))
+    current_price = _float(target.get("price", 0))
+    sale_price = price if price else current_price
+
+    if qty is None:
+        # Sell all → delete
+        try:
+            result = c.delete_holding(target["id"])
+            c.close()
+        except Exception as e:
+            click.echo(f"Error: {e}", err=True)
+            c.close()
+            raise SystemExit(1)
+
+        if as_json:
+            click.echo(json.dumps(result, indent=2, default=str))
+        else:
+            proceeds = current_qty * sale_price
+            click.echo(f"💰 Sold ALL {current_qty:.0f} shares of {ticker} at {sale_price:.2f}")
+            click.echo(f"   Proceeds: {proceeds:,.2f} {match['currency']}")
+            click.echo(f"   (Cash increases by this amount)")
+    else:
+        # Sell some → reduce qty
+        new_qty = current_qty - qty
+        if new_qty <= 0:
+            click.echo(f"Selling all {current_qty:.0f} shares (requested {qty:.0f} exceeds holding)")
+            new_qty = 0
+
+        try:
+            result = c.update_holding(
+                holding_id=target["id"], qty=new_qty, price=sale_price
+            )
+            c.close()
+        except Exception as e:
+            click.echo(f"Error: {e}", err=True)
+            c.close()
+            raise SystemExit(1)
+
+        if as_json:
+            click.echo(json.dumps(result, indent=2, default=str))
+        else:
+            proceeds = qty * sale_price
+            acct = result.get("account", {})
+            if new_qty <= 0:
+                click.echo(f"💰 Sold ALL {current_qty:.0f} shares of {ticker} at {sale_price:.2f}")
+            else:
+                click.echo(f"📉 Sold {qty:.0f} shares of {ticker} at {sale_price:.2f}")
+                click.echo(f"   Remaining: {new_qty:.0f} shares")
+            click.echo(f"   Proceeds: {proceeds:,.2f} {match['currency']}")
+            click.echo()
+            click.echo(f"   Account: {acct.get('name')}")
+            click.echo(f"   Total:   {_fmt_num(acct.get('total_balance'))} {acct.get('currency', '')}")
+            click.echo(f"   Stocks:  {_fmt_num(acct.get('holdings_value'))} {acct.get('currency', '')}")
+            click.echo(f"   Cash:    {_fmt_num(acct.get('cash'))} {acct.get('currency', '')}")
 
 
 @holding_group.command("delete")
@@ -621,7 +749,7 @@ def holding_update(api_key, url, account_name, ticker, qty, price, as_json):
 @click.option("--ticker", required=True, help="Security ticker to delete")
 @click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
 def holding_delete(api_key, url, account_name, ticker, as_json):
-    """Delete a manual holding.
+    """Delete a manual holding (sell all, cash restored).
 
     Example:
         maybe holding delete --account 长桥R --ticker AAPL
@@ -657,7 +785,8 @@ def holding_delete(api_key, url, account_name, ticker, as_json):
     if as_json:
         click.echo(json.dumps(result, indent=2, default=str))
     else:
-        click.echo(f"✅ Deleted {ticker} from {match['name']}")
+        msg = result.get("message", "Holding deleted")
+        click.echo(f"✅ {msg}")
 
 
 @holding_group.command("sync")

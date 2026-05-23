@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "maybe-cli"
+version = "0.1.0"
+description = "CLI for Maybe Finance - family investment data foundation"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.0",
+    "httpx>=0.25",
+]
+
+[project.scripts]
+maybe = "maybe_cli.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]

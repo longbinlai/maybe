@@ -215,9 +215,28 @@ Rails.application.routes.draw do
       post "auth/refresh", to: "auth#refresh"
 
       # Production API endpoints
-      resources :accounts, only: [ :index ]
+      resources :accounts, only: [ :index ] do
+        resources :balances, only: [ :index ], controller: "account_balances"
+        resources :valuations, only: [ :index, :create, :update ]
+      end
       resources :transactions, only: [ :index, :show, :create, :update, :destroy ]
       resource :usage, only: [ :show ], controller: "usage"
+
+      # Investment data endpoints
+      resources :holdings, only: [ :index ]
+      resources :trades, only: [ :index ]
+      resources :securities, only: [ :index, :show ]
+
+      # Financial analysis endpoints
+      resource :balance_sheet, only: [ :show ], controller: "balance_sheet"
+      resource :income_statement, only: [ :show ], controller: "income_statement"
+
+      # Market data endpoints
+      resources :exchange_rates, only: [ :index ]
+
+      # Reference data endpoints
+      resources :categories, only: [ :index ]
+      resources :tags, only: [ :index ]
 
       resources :chats, only: [ :index, :show, :create, :update, :destroy ] do
         resources :messages, only: [ :create ] do

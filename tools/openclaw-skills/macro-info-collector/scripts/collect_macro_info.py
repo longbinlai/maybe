@@ -58,42 +58,57 @@ class MacroInfoCollector:
             "ecb_rate": None,
             "boj_rate": None,
         }
+
+        import re
         
         # 从新闻中提取央行利率信息
         for source_name, result in results.items():
-            if result.status != "success":
+            # Accept both success and degraded status
+            if result.status not in ["success", "degraded"] or not result.items:
                 continue
-            
-            text = " ".join([item.content for item in result.items[:5]])
-            
+
             # 美联储
             if "federal_reserve" in source_name:
                 # 查找利率数字
-                for item in result.items[:5]:
-                    if "rate" in item.content.lower() or "percent" in item.content.lower():
-                        # 简单提取：查找 5.XX% 或 5.XX percent
-                        import re
-                        matches = re.findall(r'(\d+\.\d+)\s*(?:percent|%)', item.content)
+                for item in result.items[:10]:
+                    content = (item.content or "").lower()
+                    if "rate" in content or "percent" in content or "basis point" in content:
+                        # 查找常见的利率格式
+                        # 例如: "5.25 percent", "5.25%", "5.25 to 5.50 percent"
+                        matches = re.findall(r'(\d+\.\d+)\s*(?:to\s+\d+\.\d+\s+)?(?:percent|%)', item.content)
                         if matches:
                             rates["fed_funds_rate"] = float(matches[0])
                             break
-            
-            # 10年期国债
-            if "treasury" in source_name or "yield" in source_name.lower():
-                import re
-                matches = re.findall(r'10[.-]year.*?(\d+\.\d+)', text, re.IGNORECASE)
-                if matches:
-                    rates["treasury_10y"] = float(matches[0])
-        
-        # 从 YFinance 获取
+
+            # ECB
+            if "ecb" in source_name:
+                for item in result.items[:10]:
+                    content = (item.content or "").lower()
+                    if "rate" in content or "percent" in content:
+                        matches = re.findall(r'(\d+\.\d+)\s*(?:percent|%)', item.content)
+                        if matches:
+                            rates["ecb_rate"] = float(matches[0])
+                            break
+
+            # 日本央行
+            if "boj" in source_name:
+                for item in result.items[:10]:
+                    content = (item.content or "").lower()
+                    if "rate" in content or "percent" in content:
+                        matches = re.findall(r'(-?\d+\.\d+)\s*(?:percent|%)', item.content)
+                        if matches:
+                            rates["boj_rate"] = float(matches[0])
+                            break
+
+        # 从 YFinance 获取国债收益率
         if "yfinance_rates" in results:
             yf_result = results["yfinance_rates"]
-            if yf_result.status == "success":
+            if yf_result.status in ["success", "degraded"] and yf_result.items:
                 for item in yf_result.items:
                     ticker = item.metadata.get("ticker", "")
                     if ticker == "^TNX":  # 10年期国债
                         rates["treasury_10y"] = item.metadata.get("price")
-        
+
         return rates
     
     def _extract_fx(self, results: Dict) -> Dict:
@@ -104,14 +119,15 @@ class MacroInfoCollector:
             "USDAUD": None,
             "EURUSD": None,
         }
-        
+
         if "yfinance_fx" in results:
             yf_result = results["yfinance_fx"]
-            if yf_result.status == "success":
+            # Accept both success and degraded status
+            if yf_result.status in ["success", "degraded"] and yf_result.items:
                 for item in yf_result.items:
                     ticker = item.metadata.get("ticker", "")
                     price = item.metadata.get("price")
-                    
+
                     if ticker == "CNY=X":
                         fx["USDCNY"] = price
                     elif ticker == "JPY=X":
@@ -120,9 +136,9 @@ class MacroInfoCollector:
                         fx["USDAUD"] = price
                     elif ticker == "EURUSD=X":
                         fx["EURUSD"] = price
-        
+
         return fx
-    
+
     def _extract_commodities(self, results: Dict) -> Dict:
         """提取大宗商品数据"""
         commodities = {
@@ -130,17 +146,19 @@ class MacroInfoCollector:
             "oil": None,
             "copper": None,
         }
-        
+
         if "yfinance_gold" in results:
             yf_result = results["yfinance_gold"]
-            if yf_result.status == "success" and yf_result.items:
+            # Accept both success and degraded status
+            if yf_result.status in ["success", "degraded"] and yf_result.items:
                 commodities["gold"] = yf_result.items[0].metadata.get("price")
-        
+
         if "yfinance_oil" in results:
             yf_result = results["yfinance_oil"]
-            if yf_result.status == "success" and yf_result.items:
+            # Accept both success and degraded status
+            if yf_result.status in ["success", "degraded"] and yf_result.items:
                 commodities["oil"] = yf_result.items[0].metadata.get("price")
-        
+
         return commodities
     
     def _extract_indicators(self, results: Dict) -> Dict:
@@ -192,20 +210,22 @@ class MacroInfoCollector:
     def _extract_news(self, results: Dict) -> List[Dict]:
         """提取重要新闻"""
         news = []
-        
+
         # 从新闻源中提取
         news_sources = [
             "federal_reserve",
             "ecb",
             "boj",
-            "scmp_economy",
-            "ft_global_economy",
+            "scmp",
+            "forexlive",
+            "oilprice",
         ]
-        
+
         for source_name in news_sources:
             if source_name in results:
                 result = results[source_name]
-                if result.status == "success":
+                # Accept both success and degraded status
+                if result.status in ["success", "degraded"] and result.items:
                     for item in result.items[:2]:  # 每个源取前2条
                         pub_date = item.published if hasattr(item, 'published') else datetime.now()
                         news.append({
@@ -213,7 +233,7 @@ class MacroInfoCollector:
                             "title": item.title,
                             "date": pub_date.strftime("%m/%d"),
                         })
-        
+
         return news[:10]  # 最多10条
     
     def _extract_indices(self, results: Dict) -> Dict:
@@ -224,15 +244,16 @@ class MacroInfoCollector:
             "NASDAQ": None,
             "Shanghai": None,
         }
-        
+
         if "yfinance_indices" in results:
             yf_result = results["yfinance_indices"]
-            if yf_result.status == "success":
+            # Accept both success and degraded status
+            if yf_result.status in ["success", "degraded"] and yf_result.items:
                 for item in yf_result.items:
                     ticker = item.metadata.get("ticker", "")
                     price = item.metadata.get("price")
                     change_pct = item.metadata.get("change_pct")
-                    
+
                     if ticker == "^GSPC":
                         indices["SP500"] = {"price": price, "change_pct": change_pct}
                     elif ticker == "^DJI":
@@ -241,7 +262,7 @@ class MacroInfoCollector:
                         indices["NASDAQ"] = {"price": price, "change_pct": change_pct}
                     elif ticker == "000001.SS":
                         indices["Shanghai"] = {"price": price, "change_pct": change_pct}
-        
+
         return indices
     
     def _generate_summary(self) -> Dict:

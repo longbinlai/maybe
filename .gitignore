@@ -101,6 +101,7 @@ tasks.json
 .taskmaster/state.json
 *.mcp.json
 scripts/
+!tools/openclaw-skills/macro-info-collector/scripts/
 .cursor/mcp.json
 .taskmasterconfig
 .windsurfrules

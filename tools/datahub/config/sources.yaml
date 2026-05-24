@@ -199,16 +199,23 @@ sources:
     priority: high
     enabled: true
     tickers:
-      - "^GSPC"  # S&P 500
-      - "^DJI"   # Dow Jones
-      - "^IXIC"  # NASDAQ
-      - "^HSI"   # Hang Seng
-      - "000001.SS"  # Shanghai Composite
+      - "^GSPC"      # S&P 500
+      - "^DJI"       # Dow Jones
+      - "^IXIC"      # NASDAQ
+      - "^RUT"       # Russell 2000
+      - "^HSI"       # Hang Seng
+      - "000001.SS"  # Shanghai Composite (上证综指)
+      - "399001.SZ"  # Shenzhen Component (深证成指)
+      - "000300.SS"  # CSI 300 (沪深300)
+      - "^N225"      # Nikkei 225 (日经225)
+      - "^FTSE"      # FTSE 100
+      - "^GDAXI"     # DAX (德国)
+      - "^STI"       # STI (新加坡)
     data_type: price
     period: 5d
     interval: 1d
     validation:
-      min_items: 3
+      min_items: 5
       max_age_days: 1
   
   yfinance_news:

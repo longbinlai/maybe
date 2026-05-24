@@ -32,9 +32,9 @@ class MacroInfoCollector:
     def collect_all(self, use_cache: bool = True) -> Dict:
         """收集所有数据"""
         print("🔄 收集宏观经济数据...")
-        
+
         results = self.registry.fetch_all(use_cache=use_cache)
-        
+
         # 整理数据
         self.data = {
             "rates": self._extract_rates(results),
@@ -44,10 +44,14 @@ class MacroInfoCollector:
             "news": self._extract_news(results),
             "indices": self._extract_indices(results),
         }
-        
+
+        # 翻译新闻
+        print("🌐 翻译英文新闻...")
+        self.data["news"] = self._translate_news(self.data["news"])
+
         # 生成摘要
         self.summary = self._generate_summary()
-        
+
         return self.data
     
     def _extract_rates(self, results: Dict) -> Dict:
@@ -231,19 +235,98 @@ class MacroInfoCollector:
                         news.append({
                             "source": source_name,
                             "title": item.title,
+                            "url": item.url if hasattr(item, 'url') else None,
                             "date": pub_date.strftime("%m/%d"),
                         })
 
         return news[:10]  # 最多10条
     
+    def _translate_news(self, news_list: List[Dict]) -> List[Dict]:
+        """翻译英文新闻标题为中文"""
+        import requests
+        
+        # 从 OpenClaw 配置读取 bailian API key
+        openclaw_config_path = Path.home() / ".openclaw" / "openclaw.json"
+        if not openclaw_config_path.exists():
+            return news_list
+        
+        try:
+            with open(openclaw_config_path) as f:
+                openclaw_config = json.load(f)
+            
+            bailian_config = openclaw_config.get("models", {}).get("providers", {}).get("bailian", {})
+            api_key = bailian_config.get("apiKey")
+            
+            if not api_key:
+                return news_list
+            
+            # 翻译每条新闻
+            for news in news_list:
+                title = news.get("title", "")
+                source = news.get("source", "")
+                
+                # 如果标题是英文（简单判断：不包含中文字符）
+                if title and not any('\u4e00' <= char <= '\u9fff' for char in title):
+                    try:
+                        # 调用 bailian API 翻译
+                        response = requests.post(
+                            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+                            headers={
+                                "Authorization": f"Bearer {api_key}",
+                                "Content-Type": "application/json"
+                            },
+                            json={
+                                "model": "qwen-turbo",
+                                "messages": [
+                                    {
+                                        "role": "system",
+                                        "content": "你是一个专业的财经新闻翻译，将英文标题翻译成简洁的中文，保持专业术语准确。只输出翻译结果，不要添加任何解释。"
+                                    },
+                                    {
+                                        "role": "user",
+                                        "content": title
+                                    }
+                                ],
+                                "temperature": 0.3,
+                                "max_tokens": 100
+                            },
+                            timeout=5
+                        )
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            translated = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                            if translated:
+                                news["title_zh"] = translated.strip()
+                    except Exception as e:
+                        print(f"  ⚠️ 翻译失败: {e}")
+                        news["title_zh"] = title
+            
+            return news_list
+        
+        except Exception as e:
+            print(f"  ⚠️ 翻译服务不可用: {e}")
+            return news_list
+    
     def _extract_indices(self, results: Dict) -> Dict:
         """提取股指数据"""
-        indices = {
-            "SP500": None,
-            "DJI": None,
-            "NASDAQ": None,
-            "Shanghai": None,
+        # 指数映射表
+        index_mapping = {
+            "^GSPC": "SP500",
+            "^DJI": "DJI",
+            "^IXIC": "NASDAQ",
+            "^RUT": "Russell2000",
+            "^HSI": "HangSeng",
+            "000001.SS": "Shanghai",
+            "399001.SZ": "Shenzhen",
+            "000300.SS": "CSI300",
+            "^N225": "Nikkei225",
+            "^FTSE": "FTSE100",
+            "^GDAXI": "DAX",
+            "^STI": "STI",
         }
+        
+        indices = {name: None for name in index_mapping.values()}
 
         if "yfinance_indices" in results:
             yf_result = results["yfinance_indices"]
@@ -253,15 +336,13 @@ class MacroInfoCollector:
                     ticker = item.metadata.get("ticker", "")
                     price = item.metadata.get("price")
                     change_pct = item.metadata.get("change_pct")
-
-                    if ticker == "^GSPC":
-                        indices["SP500"] = {"price": price, "change_pct": change_pct}
-                    elif ticker == "^DJI":
-                        indices["DJI"] = {"price": price, "change_pct": change_pct}
-                    elif ticker == "^IXIC":
-                        indices["NASDAQ"] = {"price": price, "change_pct": change_pct}
-                    elif ticker == "000001.SS":
-                        indices["Shanghai"] = {"price": price, "change_pct": change_pct}
+                    
+                    if ticker in index_mapping:
+                        index_name = index_mapping[ticker]
+                        indices[index_name] = {
+                            "price": price,
+                            "change_pct": change_pct
+                        }
 
         return indices
     
@@ -308,113 +389,261 @@ class MacroInfoCollector:
         """格式化报告"""
         if not self.summary:
             self.collect_all()
-        
+
         lines = [
-            f"📈 宏观经济信息摘要 - {self.summary['date']}",
-            "",
-            "═══════════════════════════════════════",
-            "📊 关键指标",
-            "═══════════════════════════════════════",
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓",
+            f"┃  📈 宏观经济日报 - {self.summary['date']}              ┃",
+            "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛",
             "",
         ]
-        
-        # 利率
-        if self.summary["rates"]:
-            lines.append("美国利率")
-            if "fed_funds_rate" in self.summary["rates"]:
-                lines.append(f"  联邦基金利率：{self.summary['rates']['fed_funds_rate']}")
-            if "treasury_10y" in self.summary["rates"]:
-                lines.append(f"  10年期国债：{self.summary['rates']['treasury_10y']}")
+
+        # 股指部分 - 按地区分组
+        if self.summary["indices"]:
+            lines.append("🌍 【全球股指】")
+            lines.append("─" * 40)
+            
+            # 美国市场
+            us_indices = ["SP500", "DJI", "NASDAQ", "Russell2000"]
+            us_data = [(k, v) for k, v in self.summary["indices"].items() if k in us_indices and v]
+            if us_data:
+                lines.append("🇺🇸 美国市场")
+                for index, value in us_data:
+                    lines.append(f"  {self._format_index_name(index)}：{value}")
+            
+            # 亚洲市场
+            asia_indices = ["Shanghai", "Shenzhen", "CSI300", "HangSeng", "Nikkei225", "STI"]
+            asia_data = [(k, v) for k, v in self.summary["indices"].items() if k in asia_indices and v]
+            if asia_data:
+                lines.append("🌏 亚太市场")
+                for index, value in asia_data:
+                    lines.append(f"  {self._format_index_name(index)}：{value}")
+            
+            # 欧洲市场
+            europe_indices = ["FTSE100", "DAX"]
+            europe_data = [(k, v) for k, v in self.summary["indices"].items() if k in europe_indices and v]
+            if europe_data:
+                lines.append("🇪🇺 欧洲市场")
+                for index, value in europe_data:
+                    lines.append(f"  {self._format_index_name(index)}：{value}")
+            
             lines.append("")
-        
-        # 汇率
+
+        # 汇率部分
         if self.summary["fx"]:
-            lines.append("汇率")
+            lines.append("💱 【汇率】")
+            lines.append("─" * 40)
             for pair, rate in self.summary["fx"].items():
                 lines.append(f"  {pair}：{rate}")
             lines.append("")
-        
-        # 大宗商品
+
+        # 大宗商品部分
         if self.summary["commodities"]:
-            lines.append("大宗商品")
+            lines.append("🛢️ 【大宗商品】")
+            lines.append("─" * 40)
             if "gold" in self.summary["commodities"]:
-                lines.append(f"  黄金：{self.summary['commodities']['gold']}")
+                lines.append(f"  🥇 黄金：{self.summary['commodities']['gold']}")
             if "oil" in self.summary["commodities"]:
-                lines.append(f"  原油：{self.summary['commodities']['oil']}")
+                lines.append(f"  🛢️ 原油：{self.summary['commodities']['oil']}")
             lines.append("")
-        
-        # 股指
-        if self.summary["indices"]:
-            lines.append("股指")
-            for index, value in self.summary["indices"].items():
-                lines.append(f"  {index}：{value}")
+
+        # 利率部分
+        if self.summary["rates"]:
+            lines.append("📊 【利率】")
+            lines.append("─" * 40)
+            if "fed_funds_rate" in self.summary["rates"]:
+                lines.append(f"  美联储利率：{self.summary['rates']['fed_funds_rate']}")
+            if "treasury_10y" in self.summary["rates"]:
+                lines.append(f"  10年期国债：{self.summary['rates']['treasury_10y']}")
             lines.append("")
-        
-        # 新闻
+
+        # 新闻部分
         if self.summary["news"]:
-            lines.extend([
-                "═══════════════════════════════════════",
-                "📰 近期重要动态",
-                "═══════════════════════════════════════",
-                "",
-            ])
-            
-            for news in self.summary["news"][:5]:
-                lines.append(f"  • [{news['date']}] {news['title']}")
-            
-            lines.append("")
-        
+            lines.append("📰 【近期重要动态】")
+            lines.append("─" * 40)
+
+            for i, news in enumerate(self.summary["news"][:6], 1):
+                # 优先显示中文翻译
+                title = news.get('title_zh') or news.get('title', '')
+                source = news.get('source', '')
+                url = news.get('url', '')
+                date = news.get('date', '')
+                
+                # 来源映射
+                source_map = {
+                    "federal_reserve": "美联储",
+                    "ecb": "欧洲央行",
+                    "boj": "日本央行",
+                    "scmp": "南华早报",
+                    "forexlive": "ForexLive",
+                    "oilprice": "OilPrice",
+                }
+                source_name = source_map.get(source, source)
+                
+                lines.append(f"  {i}. [{date}] {title}")
+                lines.append(f"     来源：{source_name}")
+                if url:
+                    lines.append(f"     链接：{url}")
+                lines.append("")
+
         # 免责声明
         lines.extend([
-            "═══════════════════════════════════════",
-            "⚠️  免责声明",
-            "═══════════════════════════════════════",
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓",
+            "┃  ⚠️  免责声明                                     ┃",
+            "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛",
             "",
-            "此信息仅供参，不构成投资建议。",
+            "此信息仅供参考，不构成投资建议。",
             "具体决策请结合个人情况，必要时咨询专业人士。",
+            "",
+            "─" * 40,
+            "🤖 家庭理财助手 | 数据来源: DataHub",
         ])
-        
+
         return "\n".join(lines)
     
-    def send_to_feishu(self, webhook_url: str = None) -> bool:
-        """发送到飞书"""
-        if not webhook_url:
-            # 从配置文件读取
-            config_path = Path(__file__).parent.parent / "config" / "feishu.yaml"
-            if config_path.exists():
-                import yaml
-                with open(config_path) as f:
-                    config = yaml.safe_load(f)
-                    webhook_url = config.get("feishu", {}).get("webhook_url")
+    def _format_index_name(self, index_key: str) -> str:
+        """格式化指数名称"""
+        name_map = {
+            "SP500": "标普500",
+            "DJI": "道琼斯",
+            "NASDAQ": "纳斯达克",
+            "Russell2000": "罗素2000",
+            "HangSeng": "恒生指数",
+            "Shanghai": "上证综指",
+            "Shenzhen": "深证成指",
+            "CSI300": "沪深300",
+            "Nikkei225": "日经225",
+            "FTSE100": "富时100",
+            "DAX": "德国DAX",
+            "STI": "新加坡STI",
+        }
+        return name_map.get(index_key, index_key)
+
+    def send_to_feishu(self, webhook_url: str = None, chat_id: str = None) -> bool:
+        """发送到飞书
         
-        if not webhook_url:
-            print("❌ 未配置飞书 webhook URL")
-            return False
+        支持两种方式：
+        1. 使用 webhook URL（简单，但需要单独的机器人）
+        2. 使用飞书开放平台 API（复用现有机器人）
+        """
+        import requests
         
         report = self.format_report()
         
-        # 发送到飞书
-        import requests
-        try:
-            response = requests.post(
-                webhook_url,
-                json={
-                    "msg_type": "text",
-                    "content": {"text": report}
-                },
-                timeout=10,
-            )
-            
-            if response.status_code == 200:
-                print("✅ 已发送到飞书")
-                return True
-            else:
-                print(f"❌ 发送失败：{response.status_code}")
+        # 方式 1: 使用 webhook URL
+        if webhook_url:
+            try:
+                response = requests.post(
+                    webhook_url,
+                    json={
+                        "msg_type": "text",
+                        "content": {"text": report}
+                    },
+                    timeout=10,
+                )
+
+                if response.status_code == 200:
+                    print("✅ 已发送到飞书 (webhook)")
+                    return True
+                else:
+                    print(f"❌ 发送失败：{response.status_code}")
+                    return False
+
+            except Exception as e:
+                print(f"❌ 发送失败：{e}")
                 return False
         
-        except Exception as e:
-            print(f"❌ 发送失败：{e}")
-            return False
+        # 方式 2: 使用飞书开放平台 API（复用"家庭理财助手"机器人）
+        else:
+            # 从 OpenClaw 配置读取飞书应用信息
+            openclaw_config_path = Path.home() / ".openclaw" / "openclaw.json"
+            if not openclaw_config_path.exists():
+                print("❌ 未找到 OpenClaw 配置文件")
+                return False
+            
+            try:
+                with open(openclaw_config_path) as f:
+                    openclaw_config = json.load(f)
+                
+                feishu_config = openclaw_config.get("channels", {}).get("feishu", {})
+                app_id = feishu_config.get("appId")
+                app_secret = feishu_config.get("appSecret")
+                
+                if not app_id or not app_secret:
+                    print("❌ OpenClaw 配置中未找到飞书 appId 或 appSecret")
+                    return False
+                
+                # 如果没有指定 chat_id，从配置中读取或询问用户
+                if not chat_id:
+                    config_path = Path(__file__).parent.parent / "config" / "feishu.yaml"
+                    if config_path.exists():
+                        import yaml
+                        with open(config_path) as f:
+                            config = yaml.safe_load(f)
+                            chat_id = config.get("feishu", {}).get("chat_id")
+                
+                if not chat_id:
+                    print("❌ 未配置飞书群聊 chat_id")
+                    print("💡 请在 config/feishu.yaml 中配置 chat_id，或使用 --chat-id 参数")
+                    return False
+                
+                # 获取 tenant_access_token
+                token_url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
+                token_response = requests.post(
+                    token_url,
+                    json={
+                        "app_id": app_id,
+                        "app_secret": app_secret
+                    },
+                    timeout=10,
+                )
+                
+                if token_response.status_code != 200:
+                    print(f"❌ 获取 token 失败：{token_response.status_code}")
+                    return False
+                
+                token_data = token_response.json()
+                if token_data.get("code") != 0:
+                    print(f"❌ 获取 token 失败：{token_data.get('msg')}")
+                    return False
+                
+                access_token = token_data.get("tenant_access_token")
+                
+                # 发送消息
+                send_url = "https://open.feishu.cn/open-apis/im/v1/messages"
+                headers = {
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                }
+                
+                send_response = requests.post(
+                    send_url,
+                    headers=headers,
+                    params={"receive_id_type": "chat_id"},
+                    json={
+                        "receive_id": chat_id,
+                        "msg_type": "text",
+                        "content": json.dumps({"text": report})
+                    },
+                    timeout=10,
+                )
+                
+                if send_response.status_code == 200:
+                    send_data = send_response.json()
+                    if send_data.get("code") == 0:
+                        print("✅ 已发送到飞书 (家庭理财助手)")
+                        return True
+                    else:
+                        print(f"❌ 发送失败：{send_data.get('msg')}")
+                        return False
+                else:
+                    print(f"❌ 发送失败：{send_response.status_code}")
+                    return False
+            
+            except Exception as e:
+                print(f"❌ 发送失败：{e}")
+                import traceback
+                traceback.print_exc()
+                return False
 
 
 def main():

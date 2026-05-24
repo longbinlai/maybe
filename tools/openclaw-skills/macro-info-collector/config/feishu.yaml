@@ -1,0 +1,16 @@
+# 飞书配置
+
+feishu:
+  # 方式1: Webhook URL（推荐，简单）
+  webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/YOUR_WEBHOOK_TOKEN"
+  
+  # 方式2: 飞书机器人 API（更灵活，需要创建应用）
+  # app_id: "cli_xxxxxxxxxxxxxxxx"
+  # app_secret: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  # chat_id: "oc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# 使用说明：
+# 1. 在飞书群聊中添加自定义机器人
+# 2. 复制 webhook URL
+# 3. 粘贴到上面的 webhook_url 字段
+# 4. 保存文件

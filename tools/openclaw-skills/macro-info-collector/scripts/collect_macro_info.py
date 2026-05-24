@@ -215,68 +215,86 @@ class MacroInfoCollector:
         """提取重要新闻"""
         news = []
 
-        # 从新闻源中提取
+        # 从新闻源中提取（按优先级排序）
         news_sources = [
-            "federal_reserve",
-            "ecb",
-            "boj",
-            "scmp",
-            "forexlive",
-            "oilprice",
+            ("forexlive", 5),      # 外汇实时新闻 - 取5条
+            ("oilprice", 3),       # 油价新闻 - 取3条
+            ("scmp", 3),           # 南华早报（亚洲视角）- 取3条
+            ("federal_reserve", 2), # 美联储 - 取2条
+            ("ecb", 2),            # 欧洲央行 - 取2条
+            ("boj", 2),            # 日本央行 - 取2条
         ]
 
-        for source_name in news_sources:
+        for source_name, max_items in news_sources:
             if source_name in results:
                 result = results[source_name]
                 # Accept both success and degraded status
                 if result.status in ["success", "degraded"] and result.items:
-                    for item in result.items[:2]:  # 每个源取前2条
+                    for item in result.items[:max_items]:
                         pub_date = item.published if hasattr(item, 'published') else datetime.now()
                         news.append({
                             "source": source_name,
                             "title": item.title,
                             "url": item.url if hasattr(item, 'url') else None,
                             "date": pub_date.strftime("%m/%d"),
+                            "summary": item.description[:200] if hasattr(item, 'description') and item.description else None,
                         })
 
-        return news[:10]  # 最多10条
+        # 从 yfinance_news 提取
+        if "yfinance_news" in results:
+            yf_news = results["yfinance_news"]
+            if yf_news.status in ["success", "degraded"] and yf_news.items:
+                for item in yf_news.items[:5]:  # 取5条
+                    pub_date = item.published if hasattr(item, 'published') else datetime.now()
+                    news.append({
+                        "source": "market_news",
+                        "title": item.title,
+                        "url": item.url if hasattr(item, 'url') else None,
+                        "date": pub_date.strftime("%m/%d"),
+                        "summary": item.description[:200] if hasattr(item, 'description') and item.description else None,
+                    })
+
+        return news[:15]  # 最多15条
     
     def _translate_news(self, news_list: List[Dict]) -> List[Dict]:
         """翻译英文新闻标题为中文"""
         import requests
-        
+
         # 从 OpenClaw 配置读取 bailian API key
         openclaw_config_path = Path.home() / ".openclaw" / "openclaw.json"
         if not openclaw_config_path.exists():
+            print("  ⚠️ OpenClaw 配置文件不存在，跳过翻译")
             return news_list
-        
+
         try:
             with open(openclaw_config_path) as f:
                 openclaw_config = json.load(f)
-            
+
             bailian_config = openclaw_config.get("models", {}).get("providers", {}).get("bailian", {})
             api_key = bailian_config.get("apiKey")
-            
+
             if not api_key:
+                print("  ⚠️ 未配置 bailian API key，跳过翻译")
                 return news_list
-            
+
             # 翻译每条新闻
+            translated_count = 0
             for news in news_list:
                 title = news.get("title", "")
                 source = news.get("source", "")
-                
+
                 # 如果标题是英文（简单判断：不包含中文字符）
                 if title and not any('\u4e00' <= char <= '\u9fff' for char in title):
                     try:
-                        # 调用 bailian API 翻译
+                        # 调用 bailian API 翻译（使用 coding endpoint）
                         response = requests.post(
-                            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+                            "https://coding.dashscope.aliyuncs.com/v1/chat/completions",
                             headers={
                                 "Authorization": f"Bearer {api_key}",
                                 "Content-Type": "application/json"
                             },
                             json={
-                                "model": "qwen-turbo",
+                                "model": "qwen3.5-plus",
                                 "messages": [
                                     {
                                         "role": "system",
@@ -290,20 +308,24 @@ class MacroInfoCollector:
                                 "temperature": 0.3,
                                 "max_tokens": 100
                             },
-                            timeout=5
+                            timeout=10
                         )
-                        
+
                         if response.status_code == 200:
                             result = response.json()
                             translated = result.get("choices", [{}])[0].get("message", {}).get("content", "")
                             if translated:
                                 news["title_zh"] = translated.strip()
+                                translated_count += 1
+                        else:
+                            print(f"  ⚠️ API 返回错误: {response.status_code}")
                     except Exception as e:
                         print(f"  ⚠️ 翻译失败: {e}")
                         news["title_zh"] = title
-            
+
+            print(f"  ✅ 成功翻译 {translated_count} 条新闻")
             return news_list
-        
+
         except Exception as e:
             print(f"  ⚠️ 翻译服务不可用: {e}")
             return news_list
@@ -461,26 +483,37 @@ class MacroInfoCollector:
             lines.append("📰 【近期重要动态】")
             lines.append("─" * 40)
 
-            for i, news in enumerate(self.summary["news"][:6], 1):
+            # 来源映射
+            source_map = {
+                "federal_reserve": "美联储",
+                "ecb": "欧洲央行",
+                "boj": "日本央行",
+                "scmp": "南华早报",
+                "forexlive": "ForexLive",
+                "oilprice": "OilPrice",
+                "market_news": "市场新闻",
+            }
+
+            for i, news in enumerate(self.summary["news"][:12], 1):  # 显示最多12条
                 # 优先显示中文翻译
                 title = news.get('title_zh') or news.get('title', '')
                 source = news.get('source', '')
                 url = news.get('url', '')
                 date = news.get('date', '')
-                
-                # 来源映射
-                source_map = {
-                    "federal_reserve": "美联储",
-                    "ecb": "欧洲央行",
-                    "boj": "日本央行",
-                    "scmp": "南华早报",
-                    "forexlive": "ForexLive",
-                    "oilprice": "OilPrice",
-                }
+                summary = news.get('summary', '')
+
                 source_name = source_map.get(source, source)
-                
+
                 lines.append(f"  {i}. [{date}] {title}")
                 lines.append(f"     来源：{source_name}")
+                
+                # 显示摘要（如果有）
+                if summary:
+                    # 截断过长的摘要
+                    if len(summary) > 150:
+                        summary = summary[:147] + "..."
+                    lines.append(f"     摘要：{summary}")
+                
                 if url:
                     lines.append(f"     链接：{url}")
                 lines.append("")

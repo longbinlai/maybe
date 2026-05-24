@@ -11,8 +11,8 @@
 
 from dataclasses import dataclass
 from typing import Dict, List, Optional
-from economic_cycle import EconomicCycle, CycleAnalysis
-from asset_attractiveness import AssetClass, AssetAttractiveness
+from .economic_cycle import EconomicCycle, CycleAnalysis
+from .asset_attractiveness import AssetClass, AssetAttractiveness
 
 
 @dataclass

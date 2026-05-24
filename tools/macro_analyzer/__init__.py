@@ -8,30 +8,30 @@
 4. 持仓匹配度分析
 """
 
-from economic_cycle import (
+from .economic_cycle import (
     EconomicCycleAnalyzer,
     EconomicCycle,
     EconomicIndicator,
     CycleAnalysis
 )
-from interest_rate import (
+from .interest_rate import (
     InterestRateAnalyzer,
     Currency,
     InterestRateInfo,
     RateDifferentialAnalysis
 )
-from asset_attractiveness import (
+from .asset_attractiveness import (
     AssetAttractivenessAnalyzer,
     AssetClass,
     AssetAttractiveness,
     MarketCondition
 )
-from portfolio_alignment import (
+from .portfolio_alignment import (
     PortfolioAlignmentAnalyzer,
     Holding,
     AlignmentAnalysis
 )
-from analyzer import MacroAnalyzer, analyze_macro
+from .analyzer import MacroAnalyzer, analyze_macro
 
 __version__ = "1.0.0"
 __all__ = [

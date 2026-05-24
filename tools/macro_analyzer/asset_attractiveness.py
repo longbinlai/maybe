@@ -15,7 +15,7 @@
 from dataclasses import dataclass
 from typing import Dict, List
 from enum import Enum
-from economic_cycle import EconomicCycle
+from .economic_cycle import EconomicCycle
 
 
 class AssetClass(Enum):

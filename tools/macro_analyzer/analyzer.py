@@ -8,10 +8,10 @@
 4. 持仓匹配度分析
 """
 
-from economic_cycle import EconomicCycleAnalyzer, EconomicCycle
-from interest_rate import InterestRateAnalyzer, Currency
-from asset_attractiveness import AssetAttractivenessAnalyzer, AssetClass
-from portfolio_alignment import PortfolioAlignmentAnalyzer, Holding
+from .economic_cycle import EconomicCycleAnalyzer, EconomicCycle
+from .interest_rate import InterestRateAnalyzer, Currency
+from .asset_attractiveness import AssetAttractivenessAnalyzer, AssetClass
+from .portfolio_alignment import PortfolioAlignmentAnalyzer, Holding
 from typing import List, Dict, Any
 
 

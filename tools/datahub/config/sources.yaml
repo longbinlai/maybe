@@ -1,0 +1,227 @@
+# DataHub 数据源配置
+
+sources:
+  # ===== 央行数据源 =====
+  
+  federal_reserve:
+    type: rss
+    category: central_bank
+    priority: high
+    enabled: true
+    url: https://www.federalreserve.gov/feeds/press_all.xml
+    max_items: 20
+    validation:
+      min_items: 10
+      max_age_days: 7
+      keywords:
+        - federal reserve
+        - monetary policy
+        - interest rate
+        - inflation
+        - employment
+  
+  ecb:
+    type: rss
+    category: central_bank
+    priority: high
+    enabled: true
+    url: https://www.ecb.europa.eu/rss/press.html
+    max_items: 20
+    validation:
+      min_items: 10
+      max_age_days: 7
+      keywords:
+        - ecb
+        - european central bank
+        - monetary policy
+        - interest rate
+        - euro
+  
+  boj:
+    type: rss
+    category: central_bank
+    priority: high
+    enabled: true
+    url: https://www.boj.or.jp/en/rss/whatsnew.xml
+    max_items: 20
+    validation:
+      min_items: 10
+      max_age_days: 7
+      keywords:
+        - bank of japan
+        - boj
+        - monetary policy
+        - yen
+        - interest rate
+  
+  # ===== 经济数据源 =====
+  
+  bls:
+    type: rss
+    category: economic_data
+    priority: high
+    enabled: true
+    url: https://www.bls.gov/feed/bls_latest.rss
+    max_items: 20
+    validation:
+      min_items: 5
+      max_age_days: 30
+      keywords:
+        - employment
+        - unemployment
+        - cpi
+        - inflation
+        - labor
+  
+  bea:
+    type: rss
+    category: economic_data
+    priority: high
+    enabled: true
+    url: https://www.bea.gov/newsreleases/rss.xml
+    max_items: 20
+    validation:
+      min_items: 5
+      max_age_days: 30
+      keywords:
+        - gdp
+        - economic growth
+        - trade
+        - personal income
+  
+  # ===== 外汇数据源 =====
+  
+  forexlive:
+    type: rss
+    category: forex
+    priority: medium
+    enabled: true
+    url: https://www.forexlive.com/feed
+    max_items: 20
+    validation:
+      min_items: 10
+      max_age_days: 3
+      keywords:
+        - forex
+        - currency
+        - exchange rate
+        - usd
+        - eur
+  
+  # ===== 大宗商品数据源 =====
+  
+  oilprice:
+    type: rss
+    category: commodity
+    priority: medium
+    enabled: true
+    url: https://oilprice.com/rss/main
+    max_items: 20
+    validation:
+      min_items: 10
+      max_age_days: 3
+      keywords:
+        - oil
+        - crude
+        - gold
+        - commodity
+        - energy
+  
+  # ===== 中国经济数据源 =====
+  
+  scmp:
+    type: rss
+    category: china
+    priority: medium
+    enabled: true
+    url: https://www.scmp.com/rss/91/feed
+    max_items: 20
+    validation:
+      min_items: 10
+      max_age_days: 3
+      keywords:
+        - china
+        - chinese economy
+        - beijing
+        - yuan
+        - trade
+  
+  # ===== Yahoo Finance 数据源 =====
+  
+  yfinance_gold:
+    type: yfinance
+    category: commodity
+    priority: high
+    enabled: true
+    tickers:
+      - GC=F  # 黄金期货
+    data_type: price
+    period: 5d
+    interval: 1d
+    validation:
+      min_items: 1
+      max_age_days: 1
+  
+  yfinance_oil:
+    type: yfinance
+    category: commodity
+    priority: high
+    enabled: true
+    tickers:
+      - CL=F  # 原油期货
+    data_type: price
+    period: 5d
+    interval: 1d
+    validation:
+      min_items: 1
+      max_age_days: 1
+  
+  yfinance_fx:
+    type: yfinance
+    category: forex
+    priority: high
+    enabled: true
+    tickers:
+      - CNY=X  # USD/CNY
+      - JPY=X  # USD/JPY
+      - EUR=X  # EUR/USD
+      - GBP=X  # GBP/USD
+    data_type: price
+    period: 5d
+    interval: 1d
+    validation:
+      min_items: 2
+      max_age_days: 1
+  
+  yfinance_indices:
+    type: yfinance
+    category: market
+    priority: high
+    enabled: true
+    tickers:
+      - "^GSPC"  # S&P 500
+      - "^DJI"   # Dow Jones
+      - "^IXIC"  # NASDAQ
+      - "^HSI"   # Hang Seng
+      - "000001.SS"  # Shanghai Composite
+    data_type: price
+    period: 5d
+    interval: 1d
+    validation:
+      min_items: 3
+      max_age_days: 1
+  
+  yfinance_news:
+    type: yfinance
+    category: market_news
+    priority: medium
+    enabled: true
+    tickers:
+      - "^GSPC"
+      - "^DJI"
+      - "GC=F"
+      - "CL=F"
+    data_type: news
+    validation:
+      min_items: 5
+      max_age_days: 3

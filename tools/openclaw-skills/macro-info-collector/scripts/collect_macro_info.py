@@ -45,10 +45,6 @@ class MacroInfoCollector:
             "indices": self._extract_indices(results),
         }
 
-        # 翻译新闻
-        print("🌐 翻译英文新闻...")
-        self.data["news"] = self._translate_news(self.data["news"])
-
         # 生成摘要
         self.summary = self._generate_summary()
 
@@ -255,81 +251,7 @@ class MacroInfoCollector:
                     })
 
         return news[:15]  # 最多15条
-    
-    def _translate_news(self, news_list: List[Dict]) -> List[Dict]:
-        """翻译英文新闻标题为中文"""
-        import requests
 
-        # 从 OpenClaw 配置读取 bailian API key
-        openclaw_config_path = Path.home() / ".openclaw" / "openclaw.json"
-        if not openclaw_config_path.exists():
-            print("  ⚠️ OpenClaw 配置文件不存在，跳过翻译")
-            return news_list
-
-        try:
-            with open(openclaw_config_path) as f:
-                openclaw_config = json.load(f)
-
-            bailian_config = openclaw_config.get("models", {}).get("providers", {}).get("bailian", {})
-            api_key = bailian_config.get("apiKey")
-
-            if not api_key:
-                print("  ⚠️ 未配置 bailian API key，跳过翻译")
-                return news_list
-
-            # 翻译每条新闻
-            translated_count = 0
-            for news in news_list:
-                title = news.get("title", "")
-                source = news.get("source", "")
-
-                # 如果标题是英文（简单判断：不包含中文字符）
-                if title and not any('\u4e00' <= char <= '\u9fff' for char in title):
-                    try:
-                        # 调用 bailian API 翻译（使用 coding endpoint）
-                        response = requests.post(
-                            "https://coding.dashscope.aliyuncs.com/v1/chat/completions",
-                            headers={
-                                "Authorization": f"Bearer {api_key}",
-                                "Content-Type": "application/json"
-                            },
-                            json={
-                                "model": "qwen3.5-plus",
-                                "messages": [
-                                    {
-                                        "role": "system",
-                                        "content": "你是一个专业的财经新闻翻译，将英文标题翻译成简洁的中文，保持专业术语准确。只输出翻译结果，不要添加任何解释。"
-                                    },
-                                    {
-                                        "role": "user",
-                                        "content": title
-                                    }
-                                ],
-                                "temperature": 0.3,
-                                "max_tokens": 100
-                            },
-                            timeout=10
-                        )
-
-                        if response.status_code == 200:
-                            result = response.json()
-                            translated = result.get("choices", [{}])[0].get("message", {}).get("content", "")
-                            if translated:
-                                news["title_zh"] = translated.strip()
-                                translated_count += 1
-                        else:
-                            print(f"  ⚠️ API 返回错误: {response.status_code}")
-                    except Exception as e:
-                        print(f"  ⚠️ 翻译失败: {e}")
-                        news["title_zh"] = title
-
-            print(f"  ✅ 成功翻译 {translated_count} 条新闻")
-            return news_list
-
-        except Exception as e:
-            print(f"  ⚠️ 翻译服务不可用: {e}")
-            return news_list
-    
     def _extract_indices(self, results: Dict) -> Dict:
         """提取股指数据"""
         # 指数映射表

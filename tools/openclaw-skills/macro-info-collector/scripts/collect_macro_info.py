@@ -29,11 +29,24 @@ class MacroInfoCollector:
         self.data = {}
         self.summary = {}
     
-    def collect_all(self, use_cache: bool = True) -> Dict:
-        """收集所有数据"""
+    def collect_all(self, use_cache: bool = True, timeout: int = 30) -> Dict:
+        """收集所有数据
+        
+        Args:
+            use_cache: 是否使用缓存
+            timeout: 单个数据源超时时间（秒）
+        """
         print("🔄 收集宏观经济数据...")
 
-        results = self.registry.fetch_all(use_cache=use_cache)
+        # 设置 fetch_all 的超时
+        import os
+        os.environ['DATAHUB_TIMEOUT'] = str(timeout)
+        
+        try:
+            results = self.registry.fetch_all(use_cache=use_cache)
+        except Exception as e:
+            print(f"⚠️ 数据收集出错: {e}")
+            results = {}
 
         # 整理数据
         self.data = {
@@ -43,6 +56,45 @@ class MacroInfoCollector:
             "indicators": self._extract_indicators(results),
             "news": self._extract_news(results),
             "indices": self._extract_indices(results),
+            "risk": self._extract_risk(results),
+            "china": self._extract_china(results),
+        }
+
+        # 生成摘要
+        self.summary = self._generate_summary()
+
+        return self.data
+
+    def collect_yfinance_only(self, use_cache: bool = True) -> Dict:
+        """只收集 YFinance 数据（跳过 RSS，速度更快）"""
+        print("🔄 仅收集 YFinance 数据...")
+        
+        yfinance_sources = [
+            "yfinance_gold", "yfinance_oil", "yfinance_fx",
+            "yfinance_indices", "yfinance_risk", "yfinance_china", "yfinance_news"
+        ]
+        
+        results = {}
+        for source_name in yfinance_sources:
+            try:
+                source = self.registry.get_source(source_name)
+                if source:
+                    print(f"  获取 {source_name}...")
+                    result = source.fetch()
+                    results[source_name] = result
+            except Exception as e:
+                print(f"  ⚠️ {source_name} 失败: {e}")
+        
+        # 整理数据
+        self.data = {
+            "rates": self._extract_rates(results),
+            "fx": self._extract_fx(results),
+            "commodities": self._extract_commodities(results),
+            "indicators": self._extract_indicators(results),
+            "news": self._extract_news(results),
+            "indices": self._extract_indices(results),
+            "risk": self._extract_risk(results),
+            "china": self._extract_china(results),
         }
 
         # 生成摘要
@@ -216,6 +268,7 @@ class MacroInfoCollector:
             ("forexlive", 5),      # 外汇实时新闻 - 取5条
             ("oilprice", 3),       # 油价新闻 - 取3条
             ("scmp", 3),           # 南华早报（亚洲视角）- 取3条
+            ("caixin", 3),         # 财新（中国经济）- 取3条
             ("federal_reserve", 2), # 美联储 - 取2条
             ("ecb", 2),            # 欧洲央行 - 取2条
             ("boj", 2),            # 日本央行 - 取2条
@@ -269,7 +322,7 @@ class MacroInfoCollector:
             "^GDAXI": "DAX",
             "^STI": "STI",
         }
-        
+
         indices = {name: None for name in index_mapping.values()}
 
         if "yfinance_indices" in results:
@@ -280,7 +333,7 @@ class MacroInfoCollector:
                     ticker = item.metadata.get("ticker", "")
                     price = item.metadata.get("price")
                     change_pct = item.metadata.get("change_pct")
-                    
+
                     if ticker in index_mapping:
                         index_name = index_mapping[ticker]
                         indices[index_name] = {
@@ -289,6 +342,65 @@ class MacroInfoCollector:
                         }
 
         return indices
+
+    def _extract_risk(self, results: Dict) -> Dict:
+        """提取风险与利率指标"""
+        risk = {
+            "vix": None,
+            "treasury_10y": None,
+            "treasury_5y": None,
+            "treasury_13w": None,
+            "dxy": None,
+        }
+
+        if "yfinance_risk" in results:
+            yf_result = results["yfinance_risk"]
+            if yf_result.status in ["success", "degraded"] and yf_result.items:
+                for item in yf_result.items:
+                    ticker = item.metadata.get("ticker", "")
+                    price = item.metadata.get("price")
+                    change_pct = item.metadata.get("change_pct")
+
+                    if ticker == "^VIX":
+                        risk["vix"] = {"price": price, "change_pct": change_pct}
+                    elif ticker == "^TNX":
+                        risk["treasury_10y"] = {"price": price, "change_pct": change_pct}
+                    elif ticker == "^FVX":
+                        risk["treasury_5y"] = {"price": price, "change_pct": change_pct}
+                    elif ticker == "^IRX":
+                        risk["treasury_13w"] = {"price": price, "change_pct": change_pct}
+                    elif ticker == "DX-Y.NYB":
+                        risk["dxy"] = {"price": price, "change_pct": change_pct}
+
+        return risk
+
+    def _extract_china(self, results: Dict) -> Dict:
+        """提取中国市场指标"""
+        china = {
+            "hs300etf": None,
+            "gold_etf": None,
+            "bond_etf": None,
+            "tracker_fund": None,
+        }
+
+        if "yfinance_china" in results:
+            yf_result = results["yfinance_china"]
+            if yf_result.status in ["success", "degraded"] and yf_result.items:
+                for item in yf_result.items:
+                    ticker = item.metadata.get("ticker", "")
+                    price = item.metadata.get("price")
+                    change_pct = item.metadata.get("change_pct")
+
+                    if ticker == "510300.SS":
+                        china["hs300etf"] = {"price": price, "change_pct": change_pct}
+                    elif ticker == "518880.SS":
+                        china["gold_etf"] = {"price": price, "change_pct": change_pct}
+                    elif ticker == "511010.SS":
+                        china["bond_etf"] = {"price": price, "change_pct": change_pct}
+                    elif ticker == "2800.HK":
+                        china["tracker_fund"] = {"price": price, "change_pct": change_pct}
+
+        return china
     
     def _generate_summary(self) -> Dict:
         """生成信息摘要"""
@@ -298,6 +410,8 @@ class MacroInfoCollector:
             "fx": {},
             "commodities": {},
             "indices": {},
+            "risk": {},
+            "china": {},
             "news": [],
         }
         
@@ -323,10 +437,32 @@ class MacroInfoCollector:
             if data:
                 change_str = f" ({data['change_pct']:+.2f}%)" if data['change_pct'] else ""
                 summary["indices"][index] = f"{data['price']:,.2f}{change_str}"
-        
+
+        # 风险指标
+        for key, data in self.data["risk"].items():
+            if data:
+                change_str = f" ({data['change_pct']:+.2f}%)" if data['change_pct'] else ""
+                if key in ["treasury_10y", "treasury_5y", "treasury_13w"]:
+                    summary["risk"][key] = f"{data['price']:.3f}%{change_str}"
+                else:
+                    summary["risk"][key] = f"{data['price']:.2f}{change_str}"
+
+        # 中国市场
+        china_names = {
+            "hs300etf": "沪深300ETF",
+            "gold_etf": "黄金ETF",
+            "bond_etf": "国债ETF",
+            "tracker_fund": "盈富基金",
+        }
+        for key, data in self.data["china"].items():
+            if data:
+                change_str = f" ({data['change_pct']:+.2f}%)" if data['change_pct'] else ""
+                name = china_names.get(key, key)
+                summary["china"][name] = f"¥{data['price']:.3f}{change_str}"
+
         # 新闻
         summary["news"] = self.data["news"]
-        
+
         return summary
     
     def format_report(self) -> str:
@@ -400,6 +536,30 @@ class MacroInfoCollector:
                 lines.append(f"  10年期国债：{self.summary['rates']['treasury_10y']}")
             lines.append("")
 
+        # 风险指标部分
+        if self.summary["risk"]:
+            lines.append("⚠️ 【风险与利率指标】")
+            lines.append("─" * 40)
+            risk_names = {
+                "vix": "VIX恐慌指数",
+                "treasury_10y": "10年期国债收益率",
+                "treasury_5y": "5年期国债收益率",
+                "treasury_13w": "13周国债收益率",
+                "dxy": "美元指数(DXY)",
+            }
+            for key, value in self.summary["risk"].items():
+                name = risk_names.get(key, key)
+                lines.append(f"  {name}：{value}")
+            lines.append("")
+
+        # 中国市场部分
+        if self.summary["china"]:
+            lines.append("🇨🇳 【中国市场】")
+            lines.append("─" * 40)
+            for name, value in self.summary["china"].items():
+                lines.append(f"  {name}：{value}")
+            lines.append("")
+
         # 新闻部分
         if self.summary["news"]:
             lines.append("📰 【近期重要动态】")
@@ -411,6 +571,7 @@ class MacroInfoCollector:
                 "ecb": "欧洲央行",
                 "boj": "日本央行",
                 "scmp": "南华早报",
+                "caixin": "财新",
                 "forexlive": "ForexLive",
                 "oilprice": "OilPrice",
                 "market_news": "市场新闻",
@@ -608,13 +769,19 @@ def main():
     parser.add_argument("--weekly", action="store_true", help="生成每周总结")
     parser.add_argument("--webhook-url", help="飞书 webhook URL")
     parser.add_argument("--no-cache", action="store_true", help="不使用缓存")
-    
+    parser.add_argument("--timeout", type=int, default=30, help="单个数据源超时时间（秒）")
+    parser.add_argument("--yfinance-only", action="store_true", help="只获取 YFinance 数据（跳过 RSS）")
+
     args = parser.parse_args()
-    
+
     collector = MacroInfoCollector()
-    
+
     # 收集数据
-    collector.collect_all(use_cache=not args.no_cache)
+    if args.yfinance_only:
+        print("🔄 仅获取 YFinance 数据（跳过 RSS）...")
+        collector.collect_yfinance_only(use_cache=not args.no_cache)
+    else:
+        collector.collect_all(use_cache=not args.no_cache, timeout=args.timeout)
     
     # 生成摘要
     if args.summary or args.send_feishu:

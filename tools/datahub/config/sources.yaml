@@ -217,6 +217,63 @@ sources:
     validation:
       min_items: 5
       max_age_days: 1
+
+  # ===== 风险与利率指标 =====
+
+  yfinance_risk:
+    type: yfinance
+    category: risk
+    priority: high
+    enabled: true
+    tickers:
+      - "^VIX"       # VIX 恐慌指数
+      - "^TNX"       # 美国10年期国债收益率
+      - "^IRX"       # 美国13周国债收益率（短期利率基准）
+      - "^FVX"       # 美国5年期国债收益率
+      - "DX-Y.NYB"   # 美元指数 (DXY)
+    data_type: price
+    period: 5d
+    interval: 1d
+    validation:
+      min_items: 3
+      max_age_days: 1
+
+  # ===== 中国经济指标 =====
+
+  yfinance_china:
+    type: yfinance
+    category: china
+    priority: high
+    enabled: true
+    tickers:
+      - "2800.HK"    # 盈富基金（港股大盘ETF，反映香港市场）
+      - "510300.SS"  # 沪深300ETF（A股核心指标）
+      - "518880.SS"  # 华安黄金ETF（中国市场黄金价格）
+      - "511010.SS"  # 国债ETF（中国国债收益率参考）
+    data_type: price
+    period: 5d
+    interval: 1d
+    validation:
+      min_items: 2
+      max_age_days: 1
+
+  # 中国经济新闻
+  caixin:
+    type: rss
+    category: china
+    priority: medium
+    enabled: true
+    url: https://www.caixin.com/rss/index.jsp
+    max_items: 20
+    validation:
+      min_items: 5
+      max_age_days: 3
+      keywords:
+        - china
+        - chinese economy
+        - pm i
+        - gdp
+        - cpi
   
   yfinance_news:
     type: yfinance

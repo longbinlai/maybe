@@ -88,14 +88,75 @@ metadata:
 
 每日早报的市场事件写入 `memory/YYYY-MM-DD.md` 日期文件（不是 MEMORY.md）：
 
-1. 运行 `collect_macro_info.py --summary --concurrency 6` 收集数据
-2. 写入 `memory/YYYY-MM-DD.md` 的 `## 市场事件` 部分
-3. 使用 MEMORY.md 中的标准模板格式
-4. 每条事件必须包含：类别、市场、关键数据、情绪、影响板块、相关性、来源、**完整URL链接**
-5. 翻译英文新闻标题为中文
-6. 生成早报并推送到飞书
+### 执行流程
 
-投资决策的记录和回顾由 `family-investment` skill 负责，不在本 skill 范围内。
+1. **收集数据**
+   ```bash
+   python3 scripts/collect_macro_info.py --summary --concurrency 6
+   ```
+
+2. **写入日期文件**
+   - 文件路径：`~/.openclaw/workspace/memory/YYYY-MM-DD.md`
+   - 在 `## 市场事件` 部分追加内容
+   - 如果文件不存在，先创建并添加标题 `# YYYY-MM-DD 市场事件`
+
+3. **使用标准模板**（从 MEMORY.md 读取）
+   ```markdown
+   ### YYYY-MM-DD HH:MM: 事件标题
+   - **类别**: policy/market/economy/geopolitics
+   - **市场**: 美国/欧洲/亚洲/全球
+   - **关键数据**: 具体数值和变化
+   - **情绪**: positive/negative/neutral
+   - **影响板块**: stocks/bonds/fx/commodities
+   - **相关性**: high/medium/low
+   - **来源**: 信息源名称
+   - **链接**: 完整URL
+   - **摘要**: 1-2句话总结
+   ```
+
+4. **翻译规则**
+   - 英文新闻标题翻译为中文
+   - 保留原始来源和链接
+   - 数值保持原样，添加趋势箭头（↑↓→）
+
+5. **生成早报并推送飞书**
+
+### 示例
+
+写入 `memory/2026-05-24.md`：
+
+```markdown
+## 市场事件
+
+### 2026-05-24 08:00: 美联储5月会议纪要显示官员对通胀表示担忧
+- **类别**: policy
+- **市场**: 美国
+- **关键数据**: 多位官员认为当前利率水平可能维持更长时间
+- **情绪**: negative
+- **影响板块**: stocks, bonds
+- **相关性**: high
+- **来源**: 美联储
+- **链接**: https://www.federalreserve.gov/monetarypolicy/files/fomcminutes20260501.pdf
+- **摘要**: 美联储官员对通胀前景表示谨慎，暗示利率可能在高位维持更久
+
+### 2026-05-24 09:30: 美元兑日元升至158.50，创34年新高
+- **类别**: market
+- **市场**: 亚洲
+- **关键数据**: USD/JPY 158.50 (↑ 1.20 vs 昨日)
+- **情绪**: negative
+- **影响板块**: fx
+- **相关性**: high
+- **来源**: ForexLive
+- **链接**: https://www.forexlive.com/news/usdjpy-rises-to-15850-34-year-high
+- **摘要**: 日元持续走弱，美元兑日元突破158关口
+```
+
+### 职责边界
+
+- ✅ **本 skill 负责**：收集市场事件，写入日期文件
+- ❌ **不在本 skill 范围**：投资决策记录、周度/月度回顾（由 `family-investment` skill 负责）
+
+市场事件会被 `family-investment` skill 读取，作为投资决策的"市场背景"。
 
 ---
 

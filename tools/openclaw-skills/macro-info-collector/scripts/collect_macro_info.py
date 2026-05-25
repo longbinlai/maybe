@@ -29,12 +29,13 @@ class MacroInfoCollector:
         self.data = {}
         self.summary = {}
     
-    def collect_all(self, use_cache: bool = True, timeout: int = 30) -> Dict:
+    def collect_all(self, use_cache: bool = True, timeout: int = 30, concurrency: int = 4) -> Dict:
         """收集所有数据
         
         Args:
             use_cache: 是否使用缓存
             timeout: 单个数据源超时时间（秒）
+            concurrency: 并发数（1=顺序执行，>1=并发执行）
         """
         print("🔄 收集宏观经济数据...")
 
@@ -43,7 +44,7 @@ class MacroInfoCollector:
         os.environ['DATAHUB_TIMEOUT'] = str(timeout)
         
         try:
-            results = self.registry.fetch_all(use_cache=use_cache)
+            results = self.registry.fetch_all(use_cache=use_cache, concurrency=concurrency)
         except Exception as e:
             print(f"⚠️ 数据收集出错: {e}")
             results = {}
@@ -180,13 +181,13 @@ class MacroInfoCollector:
                     ticker = item.metadata.get("ticker", "")
                     price = item.metadata.get("price")
 
-                    if ticker == "CNY=X":
+                    if ticker in ("USDCNY=X", "CNY=X"):
                         fx["USDCNY"] = price
-                    elif ticker == "JPY=X":
+                    elif ticker in ("USDJPY=X", "JPY=X"):
                         fx["USDJPY"] = price
-                    elif ticker == "AUD=X":
+                    elif ticker in ("USDAUD=X", "AUD=X"):
                         fx["USDAUD"] = price
-                    elif ticker == "EURUSD=X":
+                    elif ticker in ("EURUSD=X", "EUR=X"):
                         fx["EURUSD"] = price
 
         return fx
@@ -770,6 +771,7 @@ def main():
     parser.add_argument("--webhook-url", help="飞书 webhook URL")
     parser.add_argument("--no-cache", action="store_true", help="不使用缓存")
     parser.add_argument("--timeout", type=int, default=30, help="单个数据源超时时间（秒）")
+    parser.add_argument("--concurrency", type=int, default=4, help="并发数（1=顺序，>1=并发）")
     parser.add_argument("--yfinance-only", action="store_true", help="只获取 YFinance 数据（跳过 RSS）")
 
     args = parser.parse_args()
@@ -781,7 +783,7 @@ def main():
         print("🔄 仅获取 YFinance 数据（跳过 RSS）...")
         collector.collect_yfinance_only(use_cache=not args.no_cache)
     else:
-        collector.collect_all(use_cache=not args.no_cache, timeout=args.timeout)
+        collector.collect_all(use_cache=not args.no_cache, timeout=args.timeout, concurrency=args.concurrency)
     
     # 生成摘要
     if args.summary or args.send_feishu:

@@ -9,6 +9,7 @@ from pathlib import Path
 import yaml
 import json
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .base_source import BaseDataSource, DataSourceResult, DataItem
 
@@ -76,49 +77,94 @@ class SourceRegistry:
         """列出所有数据源"""
         return list(self.sources.keys())
     
-    def fetch_all(self, use_cache: bool = True, cache_ttl: int = 3600) -> Dict[str, DataSourceResult]:
+    def fetch_all(self, use_cache: bool = True, cache_ttl: int = 3600, concurrency: int = 4) -> Dict[str, DataSourceResult]:
         """
         获取所有数据源的数据
-        
+
         Args:
             use_cache: 是否使用缓存
             cache_ttl: 缓存有效期（秒）
-        
+            concurrency: 并发数（1=顺序执行，>1=并发执行）
+
         Returns:
             Dict[source_name, DataSourceResult]
         """
-        results = {}
-        
-        for source_name, source in self.sources.items():
-            try:
-                # 检查缓存
-                if use_cache and self.cache_dir:
-                    cached = self._load_from_cache(source_name, cache_ttl)
-                    if cached:
-                        print(f"📦 {source_name}: 使用缓存")
-                        results[source_name] = cached
-                        continue
-                
-                # 获取新数据
-                print(f"🔄 {source_name}: 获取数据...")
-                result = source.fetch()
+        if concurrency <= 1 or len(self.sources) <= 1:
+            # 顺序执行
+            results = {}
+            for source_name, source in self.sources.items():
+                result = self._fetch_single(source_name, source, use_cache, cache_ttl)
                 results[source_name] = result
-                
-                # 保存到缓存
-                if self.cache_dir and result.status == 'success':
-                    self._save_to_cache(source_name, result)
-                
-            except Exception as e:
-                print(f"❌ {source_name}: {str(e)}")
-                results[source_name] = DataSourceResult(
-                    source_name=source_name,
-                    source_type=source.__class__.__name__,
-                    category=source.category,
-                    status='failed',
-                    error=str(e)
-                )
-        
+            return results
+
+        # 并发执行
+        results = {}
+        print(f"⚡ 并发获取数据（workers={min(concurrency, len(self.sources))}）...")
+
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            future_to_name = {
+                executor.submit(self._fetch_single, name, source, use_cache, cache_ttl): name
+                for name, source in self.sources.items()
+            }
+
+            for future in as_completed(future_to_name):
+                source_name = future_to_name[future]
+                try:
+                    result = future.result()
+                    results[source_name] = result
+                except Exception as e:
+                    print(f"❌ {source_name}: {str(e)}")
+                    source = self.sources[source_name]
+                    results[source_name] = DataSourceResult(
+                        source_name=source_name,
+                        source_type=source.__class__.__name__,
+                        category=source.category,
+                        status='failed',
+                        error=str(e)
+                    )
+
         return results
+
+    def _fetch_single(self, source_name: str, source: BaseDataSource, use_cache: bool = True, cache_ttl: int = 3600) -> DataSourceResult:
+        """
+        获取单个数据源的数据（线程安全）
+
+        Args:
+            source_name: 数据源名称
+            source: 数据源实例
+            use_cache: 是否使用缓存
+            cache_ttl: 缓存有效期（秒）
+
+        Returns:
+            DataSourceResult
+        """
+        try:
+            # 检查缓存
+            if use_cache and self.cache_dir:
+                cached = self._load_from_cache(source_name, cache_ttl)
+                if cached:
+                    print(f"📦 {source_name}: 使用缓存")
+                    return cached
+
+            # 获取新数据
+            print(f"🔄 {source_name}: 获取数据...")
+            result = source.fetch()
+
+            # 保存到缓存
+            if self.cache_dir and result.status == 'success':
+                self._save_to_cache(source_name, result)
+
+            return result
+
+        except Exception as e:
+            print(f"❌ {source_name}: {str(e)}")
+            return DataSourceResult(
+                source_name=source_name,
+                source_type=source.__class__.__name__,
+                category=source.category,
+                status='failed',
+                error=str(e)
+            )
     
     def fetch_by_category(self, category: str) -> Dict[str, DataSourceResult]:
         """按类别获取数据"""

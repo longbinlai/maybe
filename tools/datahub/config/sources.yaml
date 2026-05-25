@@ -182,10 +182,10 @@ sources:
     priority: high
     enabled: true
     tickers:
-      - CNY=X  # USD/CNY
-      - JPY=X  # USD/JPY
-      - EUR=X  # EUR/USD
-      - GBP=X  # GBP/USD
+      - USDCNY=X  # USD/CNY
+      - USDJPY=X  # USD/JPY
+      - USDAUD=X  # USD/AUD
+      - EURUSD=X  # EUR/USD
     data_type: price
     period: 5d
     interval: 1d

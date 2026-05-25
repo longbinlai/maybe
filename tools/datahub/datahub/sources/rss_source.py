@@ -8,36 +8,49 @@ from typing import List
 from datetime import datetime
 import feedparser
 import ssl
+import requests
+import urllib3
 
 from ..core.base_source import BaseDataSource, DataSourceResult, DataItem, ValidationResult
+
+# 抑制 SSL 验证警告
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class RSSSource(BaseDataSource):
     """RSS 数据源"""
-    
+
     def __init__(self, name: str, config: dict):
         super().__init__(name, config)
         self.url = config.get('url')
         self.feed_type = config.get('feed_type', 'rss')  # rss or atom
         self.max_items = config.get('max_items', 20)
-        
+        self.timeout = config.get('timeout', 15)  # 默认 15 秒超时
+
         # 忽略 SSL 验证（某些源需要）
         self.ssl_context = ssl.create_default_context()
         self.ssl_context.check_hostname = False
         self.ssl_context.verify_mode = ssl.CERT_NONE
-    
+
     def fetch(self) -> DataSourceResult:
         """获取 RSS 数据"""
         try:
+            # 使用 requests 获取内容（带超时）
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (compatible; DataHub/1.0)'
+            }
+            response = requests.get(self.url, headers=headers, timeout=self.timeout, verify=False)
+            response.raise_for_status()
+
             # 解析 RSS
-            feed = feedparser.parse(self.url)
-            
+            feed = feedparser.parse(response.content)
+
             if not feed.entries:
                 return DataSourceResult(
                     source_name=self.name,
                     source_type='rss',
                     category=self.category,
-                    status='failed',
+                    status='degraded',
                     error='没有获取到数据'
                 )
             

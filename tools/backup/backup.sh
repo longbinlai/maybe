@@ -36,8 +36,20 @@ fi
 source "$ENV_FILE"
 
 # 验证配置
-if [ -z "$NAS_IP" ] || [ -z "$NAS_SHARE" ] || [ -z "$NAS_USER" ] || [ -z "$NAS_PASSWORD" ]; then
-    log_error "NAS 配置不完整，请检查 $ENV_FILE"
+if [ -z "$NAS_BACKUP_DIR" ]; then
+    log_error "NAS_BACKUP_DIR 未配置，请检查 $ENV_FILE"
+    exit 1
+fi
+
+# 检查 NAS 备份目录
+if [ ! -d "$NAS_BACKUP_DIR" ]; then
+    log_error "NAS 备份目录不存在: $NAS_BACKUP_DIR"
+    log_error "请确保 NAS 已挂载到该路径"
+    exit 1
+fi
+
+if [ ! -w "$NAS_BACKUP_DIR" ]; then
+    log_error "NAS 备份目录不可写: $NAS_BACKUP_DIR"
     exit 1
 fi
 
@@ -124,39 +136,12 @@ cat >> "$MANIFEST_FILE" << EOF
 4. OpenClaw 配置: cp openclaw_config_${TIMESTAMP}.json ~/.openclaw/openclaw.json
 EOF
 
-# 5. 挂载 NAS
-log_info "挂载 NAS: //$NAS_USER@$NAS_IP/$NAS_SHARE"
-MOUNT_POINT="${NAS_MOUNT_POINT:-/Volumes/nas_backup}"
-
-# 创建挂载点
-if [ ! -d "$MOUNT_POINT" ]; then
-    sudo mkdir -p "$MOUNT_POINT"
-fi
-
-# 检查是否已挂载
-if mount | grep -q "$MOUNT_POINT"; then
-    log_info "NAS 已挂载，跳过挂载步骤"
-else
-    # 挂载 SMB 共享
-    if mount_smbfs "//$NAS_USER:$NAS_PASSWORD@$NAS_IP/$NAS_SHARE" "$MOUNT_POINT" 2>/dev/null; then
-        log_info "NAS 挂载成功"
-    else
-        log_error "NAS 挂载失败"
-        log_error "请检查:"
-        log_error "  1. NAS IP 地址是否正确: $NAS_IP"
-        log_error "  2. 共享名称是否正确: $NAS_SHARE"
-        log_error "  3. 用户名和密码是否正确"
-        log_error "  4. NAS 是否在线"
-        exit 1
-    fi
-fi
-
-# 6. 创建 NAS 备份目录
-NAS_BACKUP_PATH="$MOUNT_POINT/maybe_backups/$BACKUP_DIR"
+# 5. 创建 NAS 备份目录
+NAS_BACKUP_PATH="$NAS_BACKUP_DIR/backup_${TIMESTAMP}"
 log_info "创建备份目录: $NAS_BACKUP_PATH"
 mkdir -p "$NAS_BACKUP_PATH"
 
-# 7. 复制备份文件到 NAS
+# 5. 复制备份文件到 NAS
 log_info "复制备份文件到 NAS..."
 if cp -v "$TEMP_DIR"/* "$NAS_BACKUP_PATH/" 2>&1 | while read line; do log_info "  $line"; done; then
     log_info "备份文件复制成功"
@@ -165,7 +150,7 @@ else
     exit 1
 fi
 
-# 8. 验证备份
+# 6. 验证备份
 log_info "验证备份完整性..."
 VERIFY_FILE="$NAS_BACKUP_PATH/.verified"
 if [ -f "$NAS_BACKUP_PATH/manifest_${TIMESTAMP}.txt" ] && [ -f "$NAS_BACKUP_PATH/maybe_production_${TIMESTAMP}.sql" ]; then
@@ -176,34 +161,7 @@ else
     exit 1
 fi
 
-# 9. 清理旧备份
-if [ -n "$BACKUP_RETENTION_DAYS" ] && [ "$BACKUP_RETENTION_DAYS" -gt 0 ]; then
-    log_info "清理 ${BACKUP_RETENTION_DAYS} 天前的备份..."
-    
-    # 找到所有备份目录
-    find "$MOUNT_POINT/maybe_backups" -maxdepth 1 -type d -name "backup_*" | while read backup_dir; do
-        # 提取日期
-        dir_name=$(basename "$backup_dir")
-        dir_date=$(echo "$dir_name" | sed 's/backup_\([0-9]\{8\}\)_.*/\1/')
-        
-        # 计算天数差
-        current_date=$(date +%Y%m%d)
-        days_diff=$(( ( $(date -j -f "%Y%m%d" "$current_date" +%s) - $(date -j -f "%Y%m%d" "$dir_date" +%s) ) / 86400 ))
-        
-        if [ "$days_diff" -gt "$BACKUP_RETENTION_DAYS" ]; then
-            log_info "删除旧备份: $dir_name (${days_diff}天前)"
-            rm -rf "$backup_dir"
-        fi
-    done
-fi
-
-# 10. 卸载 NAS（可选）
-# 如果希望保持 NAS 挂载以便手动访问，可以注释掉这部分
-# log_info "卸载 NAS..."
-# umount "$MOUNT_POINT"
-# log_info "NAS 已卸载"
-
-# 11. 输出备份摘要
+# 9. 输出备份摘要
 log_info "========================================="
 log_info "备份完成！"
 log_info "========================================="

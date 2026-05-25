@@ -65,6 +65,19 @@ fi
 
 source "$ENV_FILE"
 
+# 验证配置
+if [ -z "$NAS_BACKUP_DIR" ]; then
+    log_error "NAS_BACKUP_DIR 未配置，请检查 $ENV_FILE"
+    exit 1
+fi
+
+# 检查 NAS 备份目录
+if [ ! -d "$NAS_BACKUP_DIR" ]; then
+    log_error "NAS 备份目录不存在: $NAS_BACKUP_DIR"
+    log_error "请确保 NAS 已挂载到该路径"
+    exit 1
+fi
+
 # 解析参数
 LIST_ONLY=false
 DB_ONLY=false
@@ -109,34 +122,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# 挂载 NAS
-MOUNT_POINT="${NAS_MOUNT_POINT:-/Volumes/nas_backup}"
-
-mount_nas() {
-    if [ ! -d "$MOUNT_POINT" ]; then
-        sudo mkdir -p "$MOUNT_POINT"
-    fi
-    
-    if mount | grep -q "$MOUNT_POINT"; then
-        log_info "NAS 已挂载"
-    else
-        log_info "挂载 NAS: //$NAS_USER@$NAS_IP/$NAS_SHARE"
-        if ! mount_smbfs "//$NAS_USER:$NAS_PASSWORD@$NAS_IP/$NAS_SHARE" "$MOUNT_POINT" 2>/dev/null; then
-            log_error "NAS 挂载失败"
-            exit 1
-        fi
-        log_info "NAS 挂载成功"
-    fi
-}
-
 # 列出所有备份
 list_backups() {
-    mount_nas
-    
-    BACKUP_BASE="$MOUNT_POINT/maybe_backups"
-    
-    if [ ! -d "$BACKUP_BASE" ]; then
-        log_warn "备份目录不存在: $BACKUP_BASE"
+    if [ ! -d "$NAS_BACKUP_DIR" ]; then
+        log_warn "备份目录不存在: $NAS_BACKUP_DIR"
         exit 0
     fi
     
@@ -144,7 +133,7 @@ list_backups() {
     log_info "可用备份列表："
     echo "========================================="
     
-    find "$BACKUP_BASE" -maxdepth 1 -type d -name "backup_*" | sort -r | while read backup_dir; do
+    find "$NAS_BACKUP_DIR" -maxdepth 1 -type d -name "backup_*" | sort -r | while read backup_dir; do
         dir_name=$(basename "$backup_dir")
         
         # 解析日期
@@ -319,25 +308,20 @@ if [ "$LIST_ONLY" = true ]; then
     exit 0
 fi
 
-# 挂载 NAS
-mount_nas
-
-BACKUP_BASE="$MOUNT_POINT/maybe_backups"
-
 # 如果未指定备份目录，使用最新的
 if [ -z "$BACKUP_DIR" ]; then
     log_info "未指定备份目录，使用最新备份..."
-    BACKUP_DIR=$(find "$BACKUP_BASE" -maxdepth 1 -type d -name "backup_*" | sort -r | head -1 | xargs basename)
-    
+    BACKUP_DIR=$(find "$NAS_BACKUP_DIR" -maxdepth 1 -type d -name "backup_*" | sort -r | head -1 | xargs basename)
+
     if [ -z "$BACKUP_DIR" ]; then
         log_error "未找到任何备份"
         exit 1
     fi
-    
+
     log_info "最新备份: $BACKUP_DIR"
 fi
 
-BACKUP_PATH="$BACKUP_BASE/$BACKUP_DIR"
+BACKUP_PATH="$NAS_BACKUP_DIR/$BACKUP_DIR"
 
 # 执行恢复
 restore_backup "$BACKUP_PATH"

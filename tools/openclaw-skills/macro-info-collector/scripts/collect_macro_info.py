@@ -170,6 +170,7 @@ class MacroInfoCollector:
             "USDCNY": None,
             "USDJPY": None,
             "USDAUD": None,
+            "AUDCNY": None,
             "EURUSD": None,
         }
 
@@ -187,6 +188,8 @@ class MacroInfoCollector:
                         fx["USDJPY"] = price
                     elif ticker in ("USDAUD=X", "AUD=X"):
                         fx["USDAUD"] = price
+                    elif ticker == "AUDCNY=X":
+                        fx["AUDCNY"] = price
                     elif ticker in ("EURUSD=X", "EUR=X"):
                         fx["EURUSD"] = price
 

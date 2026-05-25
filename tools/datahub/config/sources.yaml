@@ -185,6 +185,7 @@ sources:
       - USDCNY=X  # USD/CNY
       - USDJPY=X  # USD/JPY
       - USDAUD=X  # USD/AUD
+      - AUDCNY=X  # AUD/CNY (澳元/人民币)
       - EURUSD=X  # EUR/USD
     data_type: price
     period: 5d

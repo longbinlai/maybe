@@ -120,3 +120,6 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Backup configuration (contains NAS credentials)
+tools/backup/.env.nas

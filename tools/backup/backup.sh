@@ -22,14 +22,13 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 加载配置
+# 加载配置（从同目录的 .env.nas）
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-ENV_FILE="$PROJECT_ROOT/.env.nas"
+ENV_FILE="$SCRIPT_DIR/.env.nas"
 
 if [ ! -f "$ENV_FILE" ]; then
     log_error "配置文件不存在: $ENV_FILE"
-    log_error "请复制 .env.nas.example 为 .env.nas 并填写配置"
+    log_error "请复制 $SCRIPT_DIR/.env.nas.example 为 $ENV_FILE 并填写配置"
     exit 1
 fi
 

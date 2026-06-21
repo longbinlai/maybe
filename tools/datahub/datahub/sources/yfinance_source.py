@@ -2,25 +2,48 @@
 Yahoo Finance 数据源实现
 
 通过 yfinance 获取股票、汇率、商品价格等数据
+
+限速策略：
+- _fetch_prices: 使用 yf.download() 批量获取（1 个 HTTP 请求代替 N 个）
+- _fetch_news / _fetch_info: 逐 ticker 请求，加延迟 + 限速重试
 """
 
 from typing import List
 from datetime import datetime, timedelta
+import time
 import yfinance as yf
 
 from ..core.base_source import BaseDataSource, DataSourceResult, DataItem
 
+# 每次请求之间的最小间隔（秒），避免触发 Yahoo 限速
+_REQUEST_DELAY = 2.0
+_MAX_RETRIES = 2
+
+
+def _retry_on_rate_limit(func, max_retries=_MAX_RETRIES):
+    """遇到 Too Many Requests 时指数退避重试"""
+    for attempt in range(max_retries + 1):
+        try:
+            return func()
+        except Exception as e:
+            if attempt < max_retries and "Too Many Requests" in str(e):
+                wait = (2 ** attempt) * 3
+                print(f"⏳ 限速等待 {wait}s...")
+                time.sleep(wait)
+                continue
+            raise
+
 
 class YFinanceSource(BaseDataSource):
     """Yahoo Finance 数据源"""
-    
+
     def __init__(self, name: str, config: dict):
         super().__init__(name, config)
         self.tickers = config.get('tickers', [])
         self.data_type = config.get('data_type', 'price')  # price, news, info
         self.period = config.get('period', '5d')  # 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
         self.interval = config.get('interval', '1d')  # 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
-    
+
     def fetch(self) -> DataSourceResult:
         """获取 Yahoo Finance 数据"""
         try:
@@ -38,7 +61,7 @@ class YFinanceSource(BaseDataSource):
                     status='failed',
                     error=f'未知数据类型: {self.data_type}'
                 )
-        
+
         except Exception as e:
             return DataSourceResult(
                 source_name=self.name,
@@ -47,29 +70,66 @@ class YFinanceSource(BaseDataSource):
                 status='failed',
                 error=str(e)
             )
-    
+
     def _fetch_prices(self) -> DataSourceResult:
-        """获取价格数据"""
+        """批量获取价格数据（1 个 HTTP 请求获取所有 ticker）"""
+        if not self.tickers:
+            return DataSourceResult(
+                source_name=self.name,
+                source_type='yfinance',
+                category=self.category,
+                status='degraded',
+                error='No tickers configured'
+            )
+
         items = []
-        
+
+        # 用 yf.download() 一次性批量获取所有 ticker 的历史数据
+        # auto_adjust=True 返回调整后价格，progress=False 不打印进度条
+        df = _retry_on_rate_limit(
+            lambda: yf.download(
+                self.tickers,
+                period=self.period,
+                interval=self.interval,
+                group_by='ticker',
+                auto_adjust=True,
+                progress=False,
+                threads=False,
+            )
+        )
+
+        if df is None or df.empty:
+            return DataSourceResult(
+                source_name=self.name,
+                source_type='yfinance',
+                category=self.category,
+                status='degraded',
+                error='yf.download returned empty data'
+            )
+
+        is_multi = isinstance(df.columns, __import__('pandas').MultiIndex)
+
         for ticker_symbol in self.tickers:
             try:
-                ticker = yf.Ticker(ticker_symbol)
-                hist = ticker.history(period=self.period, interval=self.interval)
-                
-                if hist.empty:
+                # 提取单个 ticker 的 OHLCV 数据
+                if is_multi and ticker_symbol in df.columns.get_level_values(0):
+                    ticker_df = df[ticker_symbol].dropna(how='all')
+                elif not is_multi:
+                    ticker_df = df.dropna(how='all')
+                else:
                     continue
-                
-                # 获取最新价格
-                latest = hist.iloc[-1]
-                prev = hist.iloc[-2] if len(hist) > 1 else latest
-                
+
+                if ticker_df.empty or len(ticker_df) < 1:
+                    continue
+
+                latest = ticker_df.iloc[-1]
+                prev = ticker_df.iloc[-2] if len(ticker_df) > 1 else latest
+
                 price = latest['Close']
                 prev_price = prev['Close']
                 change = price - prev_price
                 change_pct = (change / prev_price * 100) if prev_price != 0 else 0
-                
-                # 创建数据项
+
                 title = f"{ticker_symbol}: ${price:.2f} ({change_pct:+.2f}%)"
                 content = f"""
 收盘价: ${price:.2f}
@@ -79,9 +139,16 @@ class YFinanceSource(BaseDataSource):
 最低: ${latest['Low']:.2f}
 成交量: {latest['Volume']:,.0f}
 """
-                
-                item_id = DataItem.generate_id(self.name, ticker_symbol, str(latest.name))
-                
+
+                # 提取日期
+                idx = ticker_df.index[-1]
+                try:
+                    pub_date = idx.to_pydatetime()
+                except Exception:
+                    pub_date = datetime.now()
+
+                item_id = DataItem.generate_id(self.name, ticker_symbol, str(idx))
+
                 items.append(DataItem(
                     id=item_id,
                     source=self.name,
@@ -89,7 +156,7 @@ class YFinanceSource(BaseDataSource):
                     title=title,
                     content=content,
                     url=f"https://finance.yahoo.com/quote/{ticker_symbol}",
-                    published=latest.name.to_pydatetime(),
+                    published=pub_date,
                     metadata={
                         'ticker': ticker_symbol,
                         'price': float(price),
@@ -98,14 +165,14 @@ class YFinanceSource(BaseDataSource):
                         'volume': int(latest['Volume']),
                     }
                 ))
-            
+
             except Exception as e:
-                print(f"⚠️  获取 {ticker_symbol} 失败: {str(e)}")
+                print(f"⚠️  解析 {ticker_symbol} 数据失败: {str(e)}")
                 continue
-        
+
         # 验证数据质量
         validation = self.validate(items)
-        
+
         # 确定状态
         if validation.is_valid:
             status = 'success'
@@ -113,7 +180,7 @@ class YFinanceSource(BaseDataSource):
             status = 'degraded'
         else:
             status = 'failed'
-        
+
         return DataSourceResult(
             source_name=self.name,
             source_type='yfinance',
@@ -122,34 +189,32 @@ class YFinanceSource(BaseDataSource):
             items=items,
             validation=validation
         )
-    
+
     def _fetch_news(self) -> DataSourceResult:
-        """获取新闻数据"""
+        """获取新闻数据（逐 ticker，带延迟和限速重试）"""
         items = []
-        
-        for ticker_symbol in self.tickers:
+
+        for i, ticker_symbol in enumerate(self.tickers):
+            # ticker 之间加延迟
+            if i > 0:
+                time.sleep(_REQUEST_DELAY)
+
             try:
-                ticker = yf.Ticker(ticker_symbol)
-                news = ticker.news
-                
-                for article in news[:10]:  # 每个ticker最多10条新闻
+                news = _retry_on_rate_limit(lambda s=ticker_symbol: yf.Ticker(s).news)
+
+                for article in (news or [])[:10]:  # 每个 ticker 最多 10 条
                     title = article.get('title', '').strip()
                     if not title:
                         continue
-                    
+
                     link = article.get('link', '')
                     publisher = article.get('publisher', 'Unknown')
-                    
-                    # 解析发布时间
+
                     pub_time = article.get('providerPublishTime')
-                    if pub_time:
-                        published = datetime.fromtimestamp(pub_time)
-                    else:
-                        published = datetime.now()
-                    
-                    # 创建数据项
+                    published = datetime.fromtimestamp(pub_time) if pub_time else datetime.now()
+
                     item_id = DataItem.generate_id(self.name, link, title)
-                    
+
                     items.append(DataItem(
                         id=item_id,
                         source=self.name,
@@ -163,22 +228,20 @@ class YFinanceSource(BaseDataSource):
                             'publisher': publisher,
                         }
                     ))
-            
+
             except Exception as e:
                 print(f"⚠️  获取 {ticker_symbol} 新闻失败: {str(e)}")
                 continue
-        
-        # 验证数据质量
+
         validation = self.validate(items)
-        
-        # 确定状态
+
         if validation.is_valid:
             status = 'success'
         elif validation.score >= 50:
             status = 'degraded'
         else:
             status = 'failed'
-        
+
         return DataSourceResult(
             source_name=self.name,
             source_type='yfinance',
@@ -187,24 +250,24 @@ class YFinanceSource(BaseDataSource):
             items=items,
             validation=validation
         )
-    
+
     def _fetch_info(self) -> DataSourceResult:
-        """获取详细信息"""
+        """获取详细信息（逐 ticker，带延迟和限速重试）"""
         items = []
-        
-        for ticker_symbol in self.tickers:
+
+        for i, ticker_symbol in enumerate(self.tickers):
+            if i > 0:
+                time.sleep(_REQUEST_DELAY)
+
             try:
-                ticker = yf.Ticker(ticker_symbol)
-                info = ticker.info
-                
-                # 提取关键信息
+                info = _retry_on_rate_limit(lambda s=ticker_symbol: yf.Ticker(s).info)
+
                 name = info.get('shortName', ticker_symbol)
                 price = info.get('currentPrice', info.get('regularMarketPrice', 0))
                 market_cap = info.get('marketCap', 0)
                 pe_ratio = info.get('trailingPE', 0)
                 dividend_yield = info.get('dividendYield', 0)
-                
-                # 格式化内容
+
                 title = f"{name} ({ticker_symbol})"
                 content = f"""
 当前价格: ${price:.2f}
@@ -212,9 +275,9 @@ class YFinanceSource(BaseDataSource):
 市盈率: {pe_ratio:.2f}
 股息率: {dividend_yield*100:.2f}%
 """
-                
+
                 item_id = DataItem.generate_id(self.name, ticker_symbol, 'info')
-                
+
                 items.append(DataItem(
                     id=item_id,
                     source=self.name,
@@ -231,22 +294,20 @@ class YFinanceSource(BaseDataSource):
                         'dividend_yield': dividend_yield,
                     }
                 ))
-            
+
             except Exception as e:
                 print(f"⚠️  获取 {ticker_symbol} 信息失败: {str(e)}")
                 continue
-        
-        # 验证数据质量
+
         validation = self.validate(items)
-        
-        # 确定状态
+
         if validation.is_valid:
             status = 'success'
         elif validation.score >= 50:
             status = 'degraded'
         else:
             status = 'failed'
-        
+
         return DataSourceResult(
             source_name=self.name,
             source_type='yfinance',

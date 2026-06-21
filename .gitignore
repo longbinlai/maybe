@@ -13,6 +13,12 @@
 !/.env*.erb
 !.env*.example
 
+# Ignore Maybe Finance export files
+maybe_export*.zip
+
+# Ignore Qwen workspace data
+.qwen/
+
 # Ignore all logfiles and tempfiles.
 /log/*
 /tmp/*

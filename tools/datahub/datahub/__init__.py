@@ -28,6 +28,18 @@ def __getattr__(name):
     elif name == 'YFinanceSource':
         from .sources.yfinance_source import YFinanceSource
         return YFinanceSource
+    elif name == 'NewsAPISource':
+        from .sources.newsapi_source import NewsAPISource
+        return NewsAPISource
+    elif name == 'HistoryStore':
+        from .core.history_store import HistoryStore
+        return HistoryStore
+    elif name == 'get_config_path':
+        from .config import get_config_path
+        return get_config_path
+    elif name == 'get_cache_dir':
+        from .config import get_cache_dir
+        return get_cache_dir
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
@@ -36,4 +48,8 @@ __all__ = [
     'SourceRegistry',
     'RSSSource',
     'YFinanceSource',
+    'NewsAPISource',
+    'HistoryStore',
+    'get_config_path',
+    'get_cache_dir',
 ]

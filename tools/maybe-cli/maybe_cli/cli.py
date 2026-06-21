@@ -334,8 +334,8 @@ def reconcile(api_key, url, as_json, account_name, balance, date):
     Just tell Maybe what the current balance is, and it recalculates everything.
 
     Example:
-        maybe reconcile --account commbank --balance 12500
-        maybe reconcile --account 招商 --balance 8500 --date 2026-05-20
+        maybe reconcile --account <account_name> --balance 12500
+        maybe reconcile --account <account_name> --balance 8500 --date 2026-05-20
     """
     c = _client(api_key, url)
 
@@ -435,6 +435,108 @@ def reconcile_all(api_key, url, as_json):
         click.echo(f"\nDone. {updated}/{len(accs)} accounts updated.")
 
 
+# ── add-transaction ─────────────────────────────────────────────────────
+
+@main.command("add-transaction")
+@_api_key_opt
+@_url_opt
+@_json_opt
+@click.option("--account", "-a", required=True, help="Account name (fuzzy match)")
+@click.option("--date", "-d", required=True, help="Transaction date (YYYY-MM-DD)")
+@click.option("--amount", "-m", required=True, type=float, help="Transaction amount")
+@click.option("--name", "-n", required=True, help="Transaction name/title")
+@click.option("--description", help="Optional description")
+@click.option("--notes", help="Optional notes")
+@click.option("--currency", help="Currency (defaults to family currency)")
+@click.option("--category", help="Category name (fuzzy match)")
+@click.option("--merchant", help="Merchant name (fuzzy match)")
+@click.option("--tag", "tags", multiple=True, help="Tag name(s) (can specify multiple)")
+@click.option("--nature", type=click.Choice(["income", "expense", "inflow", "outflow"]),
+              help="Transaction nature (income/expense)")
+def add_transaction(api_key, url, as_json, account, date, amount, name,
+                   description, notes, currency, category, merchant, tags, nature):
+    """Add a new transaction with optional tags."""
+    c = _client(api_key, url)
+    
+    # 1. Fuzzy match account
+    accs = c.accounts().get("accounts", [])
+    matched_acc = _fuzzy_match(account, accs, key="name")
+    if not matched_acc:
+        if as_json:
+            _output({"error": "account_not_found", "available": [a["name"] for a in accs]}, True)
+        else:
+            click.echo(f"❌ Account not found: {account}")
+            click.echo(f"   Available: {', '.join(a['name'] for a in accs[:10])}")
+        sys.exit(1)
+    
+    # 2. Fuzzy match category (if provided)
+    category_id = None
+    if category:
+        cats = c.categories().get("categories", [])
+        matched_cat = _fuzzy_match(category, cats, key="name")
+        if matched_cat:
+            category_id = matched_cat["id"]
+        else:
+            click.echo(f"⚠️  Category not found: {category}, skipping", err=True)
+    
+    # 3. Fuzzy match merchant (if provided)
+    merchant_id = None
+    if merchant:
+        # Maybe doesn't have a merchants endpoint in CLI, skip for now
+        click.echo(f"⚠️  Merchant matching not yet implemented, skipping", err=True)
+    
+    # 4. Fuzzy match tags (if provided)
+    tag_ids = []
+    if tags:
+        all_tags = c.tags().get("tags", [])
+        for tag_name in tags:
+            matched_tag = _fuzzy_match(tag_name, all_tags, key="name")
+            if matched_tag:
+                tag_ids.append(matched_tag["id"])
+            else:
+                click.echo(f"⚠️  Tag not found: {tag_name}, skipping", err=True)
+    
+    # 5. Create transaction
+    try:
+        result = c.create_transaction(
+            account_id=matched_acc["id"],
+            date=date,
+            amount=amount,
+            name=name,
+            description=description,
+            notes=notes,
+            currency=currency,
+            category_id=category_id,
+            merchant_id=merchant_id,
+            tag_ids=tag_ids if tag_ids else None,
+            nature=nature
+        )
+        
+        if as_json:
+            _output(result, True)
+        else:
+            click.echo(f"✅ Transaction created:")
+            click.echo(f"   Account: {matched_acc['name']}")
+            click.echo(f"   Date: {date}")
+            click.echo(f"   Amount: {_fmt_num(amount)}")
+            click.echo(f"   Name: {name}")
+            if category_id:
+                click.echo(f"   Category: {category}")
+            if tag_ids:
+                tag_names = [t["name"] for t in all_tags if t["id"] in tag_ids]
+                click.echo(f"   Tags: {', '.join(tag_names)}")
+            if nature:
+                click.echo(f"   Nature: {nature}")
+    except Exception as e:
+        if as_json:
+            _output({"error": str(e)}, True)
+        else:
+            click.echo(f"❌ Failed to create transaction: {e}", err=True)
+        sys.exit(1)
+    finally:
+        c.close()
+
+
 # ── categories ──────────────────────────────────────────────────────────
 
 @main.command("categories")
@@ -480,22 +582,27 @@ def tags(api_key, url, as_json):
 
 # ── helpers ─────────────────────────────────────────────────────────────
 
-def _find_account(accounts: list[dict], query: str) -> dict | None:
-    """Fuzzy match account by name (case-insensitive, substring)."""
+def _fuzzy_match(query: str, items: list[dict], key: str) -> dict | None:
+    """Fuzzy match by name (case-insensitive, substring)."""
     query_lower = query.lower()
     # Exact match first
-    for a in accounts:
-        if a["name"].lower() == query_lower:
-            return a
+    for item in items:
+        if item.get(key, "").lower() == query_lower:
+            return item
     # Substring match
-    for a in accounts:
-        if query_lower in a["name"].lower():
-            return a
+    for item in items:
+        if query_lower in item.get(key, "").lower():
+            return item
     # Prefix match
-    for a in accounts:
-        if a["name"].lower().startswith(query_lower):
-            return a
+    for item in items:
+        if item.get(key, "").lower().startswith(query_lower):
+            return item
     return None
+
+
+def _find_account(accounts: list[dict], query: str) -> dict | None:
+    """Fuzzy match account by name (case-insensitive, substring)."""
+    return _fuzzy_match(query, accounts, key="name")
 
 
 # ── Holding management group ────────────────────────────────────────────
@@ -523,8 +630,8 @@ def holding_add(api_key, url, account_name, ticker, qty, price, avg_cost, date, 
     If the ticker already exists in the account, it updates the position.
 
     Example:
-        maybe holding add --account 长桥R --ticker AAPL --qty 100 --price 150
-        maybe holding add --account 日本投资 --ticker 7203.T --qty 200
+        maybe holding add --account <account_name> --ticker AAPL --qty 100 --price 150
+        maybe holding add --account <account_name> --ticker 7203.T --qty 200
     """
     c = _client(api_key, url)
     accs = c.accounts().get("accounts", [])
@@ -583,9 +690,9 @@ def holding_update(api_key, url, account_name, ticker, qty, price, as_json):
     - Price change only: cash unchanged, holdings value changes
 
     Example:
-        maybe holding update --account 长桥R --ticker AAPL --qty 120    # buy 20 more
-        maybe holding update --account 长桥R --ticker AAPL --qty 80     # sell 20
-        maybe holding update --account 长桥R --ticker AAPL --price 160  # price update
+        maybe holding update --account <account_name> --ticker AAPL --qty 120    # buy 20 more
+        maybe holding update --account <account_name> --ticker AAPL --qty 80     # sell 20
+        maybe holding update --account <account_name> --ticker AAPL --price 160  # price update
     """
     c = _client(api_key, url)
     accs = c.accounts().get("accounts", [])
@@ -661,9 +768,9 @@ def holding_sell(api_key, url, account_name, ticker, qty, price, as_json):
     - If --qty given: sell that many shares (reduce position)
 
     Example:
-        maybe holding sell --account 长桥R --ticker AAPL              # sell all
-        maybe holding sell --account 长桥R --ticker AAPL --qty 30     # sell 30 shares
-        maybe holding sell --account 长桥R --ticker AAPL --price 160  # sell all at $160
+        maybe holding sell --account <account_name> --ticker AAPL              # sell all
+        maybe holding sell --account <account_name> --ticker AAPL --qty 30     # sell 30 shares
+        maybe holding sell --account <account_name> --ticker AAPL --price 160  # sell all at $160
     """
     c = _client(api_key, url)
     accs = c.accounts().get("accounts", [])
@@ -752,7 +859,7 @@ def holding_delete(api_key, url, account_name, ticker, as_json):
     """Delete a manual holding (sell all, cash restored).
 
     Example:
-        maybe holding delete --account 长桥R --ticker AAPL
+        maybe holding delete --account <account_name> --ticker AAPL
     """
     c = _client(api_key, url)
     accs = c.accounts().get("accounts", [])
@@ -879,6 +986,62 @@ def holding_rate(api_key, url, from_currency, to_currency, rate_value, date, as_
         click.echo(f"✅ Exchange rate set:")
         click.echo(f"   {r.get('from_currency')}/{r.get('to_currency')} = {r.get('rate'):.4f}")
         click.echo(f"   {r.get('to_currency')}/{r.get('from_currency')} = {r.get('reverse_rate'):.4f}")
+
+
+# ── daily-sync ──────────────────────────────────────────────────────────
+
+@main.command("daily-sync")
+@_api_key_opt
+@_url_opt
+@_json_opt
+@click.option("--dry-run", is_flag=True, help="Show what would be updated without making changes")
+def daily_sync(api_key, url, as_json, dry_run):
+    """Sync holding prices and exchange rates from Yahoo Finance.
+    
+    Fetches current prices from Yahoo Finance outside Docker,
+    then pushes updates to Maybe API.
+    """
+    from .daily_sync import sync_holding_prices, sync_exchange_rates
+
+    c = _client(api_key, url)
+    
+    price_results = sync_holding_prices(c, dry_run=dry_run)
+    rate_results = sync_exchange_rates(c, dry_run=dry_run)
+    
+    c.close()
+
+    if as_json:
+        output = {"prices": price_results, "rates": rate_results}
+        click.echo(json.dumps(output, indent=2, default=str))
+    else:
+        if dry_run:
+            click.echo("=== DRY RUN ===")
+        
+        click.echo("=== 持仓价格同步 ===")
+        if price_results["updated"]:
+            for u in price_results["updated"]:
+                old = f"${u['old_price']:.2f}" if u["old_price"] else "N/A"
+                click.echo(f"  ✅ {u['ticker']}: {old} → ${u['new_price']:.2f}")
+        if price_results["skipped"]:
+            for s in price_results["skipped"]:
+                click.echo(f"  ⏭️  {s.get('ticker', s.get('reason', '?'))}: {s.get('reason', 'skipped')}")
+        if price_results["errors"]:
+            for e in price_results["errors"]:
+                click.echo(f"  ❌ {e.get('ticker', '?')}: {e.get('error', 'unknown')}")
+        if not price_results["updated"] and not price_results["skipped"] and not price_results["errors"]:
+            click.echo("  (no holdings)")
+
+        click.echo()
+        click.echo("=== 汇率同步 ===")
+        if rate_results["updated"]:
+            for u in rate_results["updated"]:
+                click.echo(f"  ✅ {u['pair']}: {u['rate']}")
+        if rate_results["skipped"]:
+            for s in rate_results["skipped"]:
+                click.echo(f"  ⏭️  {s.get('pair', '?')}: {s.get('reason', 'skipped')}")
+        if rate_results["errors"]:
+            for e in rate_results["errors"]:
+                click.echo(f"  ❌ {e.get('pair', '?')}: {e.get('error', 'unknown')}")
 
 
 if __name__ == "__main__":

@@ -44,8 +44,13 @@ RUN apt-get install --no-install-recommends -y build-essential libpq-dev git pkg
 # Configure github proxy
 RUN git config --global url."https://ghfast.top/https://github.com/".insteadOf "https://github.com/"
 
+# Use Chinese rubygems mirror for faster bundle install
+RUN bundle config set --global mirror.https://rubygems.org https://gems.ruby-china.com
+
 # Install application gems
 COPY .ruby-version Gemfile Gemfile.lock ./
+# Ensure Bundler version matches Gemfile.lock (prevents version mismatch errors)
+RUN gem install bundler -v "$(tail -1 Gemfile.lock | awk '{print $NF}')"
 # If the repo includes a prepackaged vendor/cache (from `bundle package --all`),
 # copy it into the image and prefer a local install to avoid network access.
 # COPY vendor/cache vendor/cache

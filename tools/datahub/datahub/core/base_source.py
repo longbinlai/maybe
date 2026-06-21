@@ -101,6 +101,10 @@ class BaseDataSource(ABC):
         self.category = config.get('category', 'unknown')
         self.priority = config.get('priority', 'medium')
         self.enabled = config.get('enabled', True)
+        self.cache_ttl = config.get('cache_ttl', None)  # None = use registry default
+        self.retention_days = config.get('retention_days', None)  # None = use default by source type
+        self.fallback_group = config.get('fallback_group', None)  # Fallback 分组
+        self.fallback_priority = config.get('fallback_priority', 999)  # Fallback 优先级（数字越小优先级越高）
     
     @abstractmethod
     def fetch(self) -> DataSourceResult:

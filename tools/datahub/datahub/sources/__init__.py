@@ -7,6 +7,7 @@ DataHub Sources 模块
 __all__ = [
     'RSSSource',
     'YFinanceSource',
+    'NewsAPISource',
 ]
 
 def __getattr__(name):
@@ -17,4 +18,7 @@ def __getattr__(name):
     elif name == 'YFinanceSource':
         from .yfinance_source import YFinanceSource
         return YFinanceSource
+    elif name == 'NewsAPISource':
+        from .newsapi_source import NewsAPISource
+        return NewsAPISource
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -123,6 +123,54 @@ class MaybeClient:
             params["end_date"] = end_date
         return self._get("transactions", params or None)
 
+    def create_transaction(self, account_id: str, date: str, amount: float,
+                          name: str, description: str | None = None,
+                          notes: str | None = None, currency: str | None = None,
+                          category_id: str | None = None,
+                          merchant_id: str | None = None,
+                          tag_ids: list[str] | None = None,
+                          nature: str | None = None) -> dict:
+        """
+        Create a new transaction.
+        
+        Args:
+            account_id: Account UUID
+            date: Transaction date (YYYY-MM-DD)
+            amount: Transaction amount
+            name: Transaction name/title
+            description: Optional description
+            notes: Optional notes
+            currency: Optional currency (defaults to family currency)
+            category_id: Optional category UUID
+            merchant_id: Optional merchant UUID
+            tag_ids: Optional list of tag UUIDs
+            nature: Optional "income"/"inflow" or "expense"/"outflow"
+        
+        Returns:
+            Created transaction data
+        """
+        data = {
+            "account_id": account_id,
+            "date": date,
+            "amount": amount,
+            "name": name,
+        }
+        if description:
+            data["description"] = description
+        if notes:
+            data["notes"] = notes
+        if currency:
+            data["currency"] = currency
+        if category_id:
+            data["category_id"] = category_id
+        if merchant_id:
+            data["merchant_id"] = merchant_id
+        if tag_ids:
+            data["tag_ids"] = tag_ids
+        if nature:
+            data["nature"] = nature
+        return self._post("transactions", {"transaction": data})
+
     def valuations(self, account_id: str) -> dict:
         return self._get(f"accounts/{account_id}/valuations")
 

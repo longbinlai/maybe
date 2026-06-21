@@ -10,10 +10,12 @@ requires-python = ">=3.10"
 dependencies = [
     "click>=8.0",
     "httpx>=0.25",
+    "yfinance>=0.2.0",
 ]
 
 [project.scripts]
 maybe = "maybe_cli.cli:main"
+yf = "maybe_cli.yf:cli"
 
 [tool.setuptools.packages.find]
 where = ["."]

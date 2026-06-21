@@ -3,11 +3,11 @@
 DataHub CLI - 数据源管理命令行工具
 
 用法:
-  python cli.py fetch-all              # 获取所有数据源
-  python cli.py fetch <source_name>    # 获取单个数据源
-  python cli.py list                   # 列出所有数据源
-  python cli.py test                   # 测试所有数据源连接
-  python cli.py status                 # 查看缓存状态
+  datahub-cli fetch-all              # 获取所有数据源
+  datahub-cli fetch <source_name>    # 获取单个数据源
+  datahub-cli list                   # 列出所有数据源
+  datahub-cli test                   # 测试所有数据源连接
+  datahub-cli status                 # 查看缓存状态
 """
 
 import sys
@@ -15,10 +15,6 @@ import os
 import re
 from pathlib import Path
 from datetime import datetime, timedelta
-
-# 添加项目根目录到路径
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
 
 from datahub import SourceRegistry, get_config_path, get_cache_dir
 from datahub.core.history_store import HistoryStore

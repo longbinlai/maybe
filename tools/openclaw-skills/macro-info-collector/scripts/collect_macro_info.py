@@ -10,43 +10,89 @@ import os
 import json
 import argparse
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Dict, List, Optional
 
-# Add datahub to path
-DATAHUB_PATH = Path(__file__).parent.parent.parent.parent / "datahub"
-sys.path.insert(0, str(DATAHUB_PATH))
+from datahub import SourceRegistry, get_config_path, get_cache_dir
 
-from datahub import SourceRegistry
+
+# 常见英文财经词汇的中文映射（无需 API）
+TITLE_TRANSLATIONS = {
+    "Fed": "美联储",
+    "Federal Reserve": "美联储",
+    "ECB": "欧洲央行",
+    "BOJ": "日本央行",
+    "rate hike": "加息",
+    "rate cut": "降息",
+    "inflation": "通胀",
+    "GDP": "GDP",
+    "PMI": "PMI",
+    "CPI": "CPI",
+    "unemployment": "失业率",
+    "treasury": "国债",
+    "yield": "收益率",
+    "S&P 500": "标普500",
+    "Nasdaq": "纳斯达克",
+    "Dow Jones": "道琼斯",
+    "oil": "原油",
+    "gold": "黄金",
+    "copper": "铜",
+    "Strait of Hormuz": "霍尔木兹海峡",
+    "ceasefire": "停火",
+    "Hezbollah": "真主党",
+    "Israel": "以色列",
+    "Iran": "伊朗",
+    "drone strike": "无人机袭击",
+    "Lebanon": "黎巴嫩",
+    "Southern Lebanon": "黎巴嫩南部",
+}
+
+def translate_title_simple(title: str) -> str:
+    """使用关键词映射翻译标题"""
+    result = title
+    # 按长度排序，先替换长词组，避免部分替换问题
+    # 例如：先替换 "Federal Reserve" 再替换 "Fed"
+    sorted_translations = sorted(TITLE_TRANSLATIONS.items(), key=lambda x: len(x[0]), reverse=True)
+    for en, zh in sorted_translations:
+        # 替换英文关键词（忽略大小写）
+        import re
+        pattern = re.compile(re.escape(en), re.IGNORECASE)
+        result = pattern.sub(zh, result)
+    return result
+
+
+def log(msg: str):
+    """进度信息输出到 stderr（不会发送到飞书）"""
+    print(msg, file=sys.stderr)
 
 
 class MacroInfoCollector:
     """宏观经济信息收集器"""
     
     def __init__(self):
-        config_path = DATAHUB_PATH / "config" / "sources.yaml"
-        self.registry = SourceRegistry(config_path)
+        config_path = get_config_path("sources.yaml")
+        cache_dir = get_cache_dir()
+        self.registry = SourceRegistry(str(config_path), cache_dir=str(cache_dir))
         self.data = {}
         self.summary = {}
     
     def collect_all(self, use_cache: bool = True, timeout: int = 30, concurrency: int = 4) -> Dict:
         """收集所有数据
-        
+
         Args:
             use_cache: 是否使用缓存
             timeout: 单个数据源超时时间（秒）
             concurrency: 并发数（1=顺序执行，>1=并发执行）
         """
-        print("🔄 收集宏观经济数据...")
+        log("🔄 收集宏观经济数据...")
 
         # 设置 fetch_all 的超时
         import os
         os.environ['DATAHUB_TIMEOUT'] = str(timeout)
-        
+
         try:
             results = self.registry.fetch_all(use_cache=use_cache, concurrency=concurrency)
         except Exception as e:
-            print(f"⚠️ 数据收集出错: {e}")
+            log(f"⚠️ 数据收集出错: {e}")
             results = {}
 
         # 整理数据
@@ -102,7 +148,59 @@ class MacroInfoCollector:
         self.summary = self._generate_summary()
 
         return self.data
-    
+
+    def collect_rss_only(self, use_cache: bool = True, timeout: int = 30, concurrency: int = 4) -> Dict:
+        """只收集 RSS/NewsAPI 数据（跳过 YFinance，避免限速）"""
+        log("🔄 仅收集 RSS/NewsAPI 数据...")
+
+        # 设置超时
+        import os
+        os.environ['DATAHUB_TIMEOUT'] = str(timeout)
+
+        # 过滤出非 YFinance 源
+        rss_sources = {
+            name: source for name, source in self.registry.sources.items()
+            if source.__class__.__name__ != 'YFinanceSource'
+        }
+
+        log(f"  找到 {len(rss_sources)} 个 RSS/NewsAPI 源")
+
+        try:
+            # 使用优先级调度器
+            from datahub.core.priority_scheduler import PriorityScheduler
+            scheduler = PriorityScheduler(yf_concurrency=1, rss_concurrency=concurrency)
+
+            # 定义获取函数
+            def fetch_func(name, source):
+                return self.registry._fetch_single(name, source, use_cache, timeout)
+
+            # 执行调度
+            results = scheduler.schedule(
+                rss_sources,
+                fetch_func,
+                yf_sources=set()  # 空集合，表示没有 YF 源
+            )
+        except Exception as e:
+            log(f"⚠️ 数据收集出错: {e}")
+            results = {}
+
+        # 整理数据
+        self.data = {
+            "rates": self._extract_rates(results),
+            "fx": self._extract_fx(results),
+            "commodities": self._extract_commodities(results),
+            "indicators": self._extract_indicators(results),
+            "news": self._extract_news(results),
+            "indices": self._extract_indices(results),
+            "risk": self._extract_risk(results),
+            "china": self._extract_china(results),
+        }
+
+        # 生成摘要
+        self.summary = self._generate_summary()
+
+        return self.data
+
     def _extract_rates(self, results: Dict) -> Dict:
         """提取利率数据"""
         rates = {
@@ -113,9 +211,13 @@ class MacroInfoCollector:
         }
 
         import re
-        
+
         # 从新闻中提取央行利率信息
         for source_name, result in results.items():
+            # Skip None results (from fallback groups)
+            if result is None:
+                continue
+            
             # Accept both success and degraded status
             if result.status not in ["success", "degraded"] or not result.items:
                 continue
@@ -228,6 +330,10 @@ class MacroInfoCollector:
         
         # 从新闻中提取
         for source_name, result in results.items():
+            # Skip None results (from fallback groups)
+            if result is None:
+                continue
+            
             if result.status != "success":
                 continue
             
@@ -281,13 +387,19 @@ class MacroInfoCollector:
         for source_name, max_items in news_sources:
             if source_name in results:
                 result = results[source_name]
+                # Skip None results (from fallback groups)
+                if result is None:
+                    continue
                 # Accept both success and degraded status
                 if result.status in ["success", "degraded"] and result.items:
                     for item in result.items[:max_items]:
                         pub_date = item.published if hasattr(item, 'published') else datetime.now()
+                        # 翻译标题
+                        title_zh = translate_title_simple(item.title)
                         news.append({
                             "source": source_name,
                             "title": item.title,
+                            "title_zh": title_zh,
                             "url": item.url if hasattr(item, 'url') else None,
                             "date": pub_date.strftime("%m/%d"),
                             "summary": item.description[:200] if hasattr(item, 'description') and item.description else None,
@@ -299,9 +411,12 @@ class MacroInfoCollector:
             if yf_news.status in ["success", "degraded"] and yf_news.items:
                 for item in yf_news.items[:5]:  # 取5条
                     pub_date = item.published if hasattr(item, 'published') else datetime.now()
+                    # 翻译标题
+                    title_zh = translate_title_simple(item.title)
                     news.append({
                         "source": "market_news",
                         "title": item.title,
+                        "title_zh": title_zh,
                         "url": item.url if hasattr(item, 'url') else None,
                         "date": pub_date.strftime("%m/%d"),
                         "summary": item.description[:200] if hasattr(item, 'description') and item.description else None,
@@ -638,144 +753,14 @@ class MacroInfoCollector:
         }
         return name_map.get(index_key, index_key)
 
-    def send_to_feishu(self, webhook_url: str = None, chat_id: str = None) -> bool:
-        """发送到飞书
-        
-        支持两种方式：
-        1. 使用 webhook URL（简单，但需要单独的机器人）
-        2. 使用飞书开放平台 API（复用现有机器人）
-        """
-        import requests
-        
-        report = self.format_report()
-        
-        # 方式 1: 使用 webhook URL
-        if webhook_url:
-            try:
-                response = requests.post(
-                    webhook_url,
-                    json={
-                        "msg_type": "text",
-                        "content": {"text": report}
-                    },
-                    timeout=10,
-                )
-
-                if response.status_code == 200:
-                    print("✅ 已发送到飞书 (webhook)")
-                    return True
-                else:
-                    print(f"❌ 发送失败：{response.status_code}")
-                    return False
-
-            except Exception as e:
-                print(f"❌ 发送失败：{e}")
-                return False
-        
-        # 方式 2: 使用飞书开放平台 API（复用"家庭理财助手"机器人）
-        else:
-            # 从 OpenClaw 配置读取飞书应用信息
-            openclaw_config_path = Path.home() / ".openclaw" / "openclaw.json"
-            if not openclaw_config_path.exists():
-                print("❌ 未找到 OpenClaw 配置文件")
-                return False
-            
-            try:
-                with open(openclaw_config_path) as f:
-                    openclaw_config = json.load(f)
-                
-                feishu_config = openclaw_config.get("channels", {}).get("feishu", {})
-                app_id = feishu_config.get("appId")
-                app_secret = feishu_config.get("appSecret")
-                
-                if not app_id or not app_secret:
-                    print("❌ OpenClaw 配置中未找到飞书 appId 或 appSecret")
-                    return False
-                
-                # 如果没有指定 chat_id，从配置中读取或询问用户
-                if not chat_id:
-                    config_path = Path(__file__).parent.parent / "config" / "feishu.yaml"
-                    if config_path.exists():
-                        import yaml
-                        with open(config_path) as f:
-                            config = yaml.safe_load(f)
-                            chat_id = config.get("feishu", {}).get("chat_id")
-                
-                if not chat_id:
-                    print("❌ 未配置飞书群聊 chat_id")
-                    print("💡 请在 config/feishu.yaml 中配置 chat_id，或使用 --chat-id 参数")
-                    return False
-                
-                # 获取 tenant_access_token
-                token_url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
-                token_response = requests.post(
-                    token_url,
-                    json={
-                        "app_id": app_id,
-                        "app_secret": app_secret
-                    },
-                    timeout=10,
-                )
-                
-                if token_response.status_code != 200:
-                    print(f"❌ 获取 token 失败：{token_response.status_code}")
-                    return False
-                
-                token_data = token_response.json()
-                if token_data.get("code") != 0:
-                    print(f"❌ 获取 token 失败：{token_data.get('msg')}")
-                    return False
-                
-                access_token = token_data.get("tenant_access_token")
-                
-                # 发送消息
-                send_url = "https://open.feishu.cn/open-apis/im/v1/messages"
-                headers = {
-                    "Authorization": f"Bearer {access_token}",
-                    "Content-Type": "application/json"
-                }
-                
-                send_response = requests.post(
-                    send_url,
-                    headers=headers,
-                    params={"receive_id_type": "chat_id"},
-                    json={
-                        "receive_id": chat_id,
-                        "msg_type": "text",
-                        "content": json.dumps({"text": report})
-                    },
-                    timeout=10,
-                )
-                
-                if send_response.status_code == 200:
-                    send_data = send_response.json()
-                    if send_data.get("code") == 0:
-                        print("✅ 已发送到飞书 (家庭理财助手)")
-                        return True
-                    else:
-                        print(f"❌ 发送失败：{send_data.get('msg')}")
-                        return False
-                else:
-                    print(f"❌ 发送失败：{send_response.status_code}")
-                    return False
-            
-            except Exception as e:
-                print(f"❌ 发送失败：{e}")
-                import traceback
-                traceback.print_exc()
-                return False
-
-
 def main():
     parser = argparse.ArgumentParser(description="宏观经济信息收集器")
-    parser.add_argument("--summary", action="store_true", help="生成信息摘要")
-    parser.add_argument("--send-feishu", action="store_true", help="发送到飞书")
-    parser.add_argument("--weekly", action="store_true", help="生成每周总结")
-    parser.add_argument("--webhook-url", help="飞书 webhook URL")
+    parser.add_argument("--summary", action="store_true", help="生成信息摘要（输出到 stdout）")
     parser.add_argument("--no-cache", action="store_true", help="不使用缓存")
     parser.add_argument("--timeout", type=int, default=30, help="单个数据源超时时间（秒）")
     parser.add_argument("--concurrency", type=int, default=4, help="并发数（1=顺序，>1=并发）")
     parser.add_argument("--yfinance-only", action="store_true", help="只获取 YFinance 数据（跳过 RSS）")
+    parser.add_argument("--no-yfinance", action="store_true", help="跳过 YFinance 数据（只获取 RSS/NewsAPI）")
 
     args = parser.parse_args()
 
@@ -783,22 +768,18 @@ def main():
 
     # 收集数据
     if args.yfinance_only:
-        print("🔄 仅获取 YFinance 数据（跳过 RSS）...")
+        log("仅获取 YFinance 数据（跳过 RSS）...")
         collector.collect_yfinance_only(use_cache=not args.no_cache)
+    elif args.no_yfinance:
+        log("跳过 YFinance 数据（只获取 RSS/NewsAPI）...")
+        collector.collect_rss_only(use_cache=not args.no_cache, timeout=args.timeout, concurrency=args.concurrency)
     else:
         collector.collect_all(use_cache=not args.no_cache, timeout=args.timeout, concurrency=args.concurrency)
-    
-    # 生成摘要
-    if args.summary or args.send_feishu:
-        report = collector.format_report()
-        print(report)
-        
-        # 发送到飞书
-        if args.send_feishu:
-            collector.send_to_feishu(args.webhook_url)
-    
-    # 输出 JSON（用于程序处理）
-    if not args.summary and not args.send_feishu:
+
+    # 输出到 stdout（由 OpenClaw delivery 机制发送到飞书）
+    if args.summary:
+        print(collector.format_report())
+    else:
         print(json.dumps(collector.summary, indent=2, ensure_ascii=False))
 
 

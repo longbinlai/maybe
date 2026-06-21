@@ -1,6 +1,6 @@
 ---
 name: yfinance
-description: "Market data queries: stock quotes, historical prices, exchange rates, index performance. Use for investment analysis and market monitoring."
+description: "Query real-time market data: stock prices, exchange rates, indices, commodities via Yahoo Finance."
 metadata:
   {
     "openclaw":

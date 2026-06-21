@@ -2,7 +2,7 @@
 
 <%= turbo_frame_tag dom_id(holding) do %>
   <div class="grid grid-cols-12 items-center text-primary text-sm font-medium p-4">
-    <div class="col-span-4 flex items-center gap-4">
+    <div class="col-span-3 flex items-center gap-4">
       <%= image_tag "https://logo.synthfinance.com/ticker/#{holding.ticker}", class: "w-9 h-9 rounded-full", loading: "lazy" %>
 
       <div class="space-y-0.5">
@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <div class="col-span-2 flex justify-end items-center gap-2">
+    <div class="col-span-1 flex justify-end items-center gap-2">
       <% if holding.weight %>
         <%= render "shared/progress_circle", progress: holding.weight %>
         <%= tag.p number_to_percentage(holding.weight, precision: 1) %>
@@ -28,6 +28,15 @@
     <div class="col-span-2 text-right">
       <%= tag.p format_money holding.avg_cost %>
       <%= tag.p t(".per_share"), class: "font-normal text-secondary" %>
+    </div>
+
+    <div class="col-span-2 text-right">
+      <% if holding.price %>
+        <%= tag.p format_money(Money.new(holding.price, holding.currency)) %>
+        <%= tag.p t(".per_share"), class: "font-normal text-secondary" %>
+      <% else %>
+        <%= tag.p "--", class: "text-secondary" %>
+      <% end %>
     </div>
 
     <div class="col-span-2 text-right">

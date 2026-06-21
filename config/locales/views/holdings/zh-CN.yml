@@ -10,6 +10,7 @@ zh-CN:
       shares: "%{qty}股"
     index:
       average_cost: 平均成本
+      current_price: 现价
       holdings: 持仓
       name: 名称
       new_holding: 新交易

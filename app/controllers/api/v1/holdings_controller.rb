@@ -78,6 +78,9 @@ class Api::V1::HoldingsController < Api::V1::BaseController
       new_holdings_value = current_holdings_value(@account)
       new_cash = @account.balance - new_holdings_value
       @account.update_columns(cash_balance: new_cash)
+      
+      # Trigger balance recalculation to keep historical data accurate
+      @account.sync_later
 
       render json: {
         status: "ok",
@@ -152,6 +155,9 @@ class Api::V1::HoldingsController < Api::V1::BaseController
         account.update_columns(balance: new_total)
       end
 
+      # Trigger balance recalculation to keep historical data accurate
+      account.sync_later
+
       action = if qty_changed
         delta > 0.01 ? "bought_more" : "sold_some"
       else
@@ -187,6 +193,9 @@ class Api::V1::HoldingsController < Api::V1::BaseController
     new_holdings_value = current_holdings_value(account)
     new_cash = account.balance - new_holdings_value
     account.update_columns(cash_balance: new_cash)
+    
+    # Trigger balance recalculation to keep historical data accurate
+    account.sync_later
 
     render json: {
       status: "ok",

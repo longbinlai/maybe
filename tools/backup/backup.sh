@@ -22,21 +22,23 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 加载配置（从同目录的 .env.nas）
+# 加载配置（从同目录的 .env.nas，如果存在）
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env.nas"
 
-if [ ! -f "$ENV_FILE" ]; then
-    log_error "配置文件不存在: $ENV_FILE"
-    log_error "请复制 $SCRIPT_DIR/.env.nas.example 为 $ENV_FILE 并填写配置"
-    exit 1
-fi
+# 默认 NAS 备份目录（如果 .env.nas 不存在）
+NAS_BACKUP_DIR="/Volumes/home/family-finance-backup"
 
-source "$ENV_FILE"
+if [ -f "$ENV_FILE" ]; then
+    source "$ENV_FILE"
+    log_info "已加载配置文件: $ENV_FILE"
+else
+    log_info "配置文件不存在，使用默认 NAS 路径: $NAS_BACKUP_DIR"
+fi
 
 # 验证配置
 if [ -z "$NAS_BACKUP_DIR" ]; then
-    log_error "NAS_BACKUP_DIR 未配置，请检查 $ENV_FILE"
+    log_error "NAS_BACKUP_DIR 未配置"
     exit 1
 fi
 

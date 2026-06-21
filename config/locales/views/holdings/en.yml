@@ -10,6 +10,7 @@ en:
       shares: "%{qty} shares"
     index:
       average_cost: Average cost
+      current_price: Current price
       holdings: Holdings
       name: Name
       new_holding: New transaction

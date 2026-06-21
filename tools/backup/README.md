@@ -131,7 +131,7 @@ launchctl unload ~/Library/LaunchAgents/com.maybe.backup.plist
 crontab -e
 
 # 添加每周日 22:00 的备份任务
-0 22 * * 0 /Users/longbinlai/Documents/git/maybe/tools/backup/backup.sh >> /tmp/maybe-backup.log 2>&1
+0 22 * * 0 <project-path>/tools/backup/backup.sh >> /tmp/maybe-backup.log 2>&1
 ```
 
 ## 备份内容

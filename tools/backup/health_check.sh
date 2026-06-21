@@ -6,8 +6,10 @@ set -euo pipefail
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 CONTAINERS=("maybe-web-1" "maybe-worker-1" "maybe-db-1" "maybe-redis-1" "maybe-qdrant-1")
-DATAHUB_CACHE_DIR="/Users/longbinlai/Documents/git/maybe/tools/datahub/cache"
+DATAHUB_CACHE_DIR="${DATAHUB_CACHE_DIR:-${SCRIPT_DIR}/../datahub/cache}"
 ALERT_LOCK_FILE="/tmp/health_check_last_alert"
 ALERT_COOLDOWN=1800  # 30 minutes in seconds
 OPENCLAW_CONFIG="$HOME/.openclaw/openclaw.json"

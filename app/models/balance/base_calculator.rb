@@ -53,6 +53,10 @@ class Balance::BaseCalculator
       change_holdings_value = end_of_day_holdings_value - start_of_day_holdings_value
       net_buy_sell_value = flows[:non_cash_inflows] - flows[:non_cash_outflows]
 
+      # When holdings first appear (no previous day holdings) and there are no
+      # buy/sell trades, the change is from an opening balance import, not market gains
+      return 0 if start_of_day_holdings_value.zero? && net_buy_sell_value.zero?
+
       change_holdings_value - net_buy_sell_value
     end
 

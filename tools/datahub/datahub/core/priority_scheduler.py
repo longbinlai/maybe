@@ -16,9 +16,26 @@ Fallback 机制：
 - 只要组内有一个成功就停止尝试下一个
 """
 
+import sys
 from typing import Dict, List, Tuple
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
+# 全局安静模式标志
+QUIET_MODE = False
+
+
+def set_quiet_mode(quiet: bool):
+    """设置安静模式（True 时进度信息输出到 stderr）"""
+    global QUIET_MODE
+    QUIET_MODE = quiet
+
+
+def _print_progress(msg: str):
+    """进度信息始终输出到 stderr（不污染 stdout），安静模式时完全静默"""
+    if not QUIET_MODE:
+        print(msg, file=sys.stderr)
 
 
 # 优先级映射（数字越小优先级越高）
@@ -112,25 +129,25 @@ class PriorityScheduler:
         yf_items = [(n, s) for n, s in sources if n in yf_sources]
         rss_items = [(n, s) for n, s in sources if n not in yf_sources]
 
-        print(f"\n{'='*60}")
-        print(f"📍 {phase_name}")
-        print(f"{'='*60}")
+        _print_progress(f"\n{'='*60}")
+        _print_progress(f"📍 {phase_name}")
+        _print_progress(f"{'='*60}")
 
         # YF 源串行执行
         if yf_items:
-            print(f"\n  🔄 YF 源 (串行, concurrency={self.yf_concurrency})")
+            _print_progress(f"\n  🔄 YF 源 (串行, concurrency={self.yf_concurrency})")
             for name, source in yf_items:
-                print(f"    - {name}...")
+                _print_progress(f"    - {name}...")
                 results[name] = fetch_func(name, source)
 
         # RSS 源并发执行（支持 fallback）
         if rss_items:
-            print(f"\n  ⚡ RSS/NewsAPI 源 (并发, concurrency={self.rss_concurrency})")
-            
+            _print_progress(f"\n  ⚡ RSS/NewsAPI 源 (并发, concurrency={self.rss_concurrency})")
+
             # 按 fallback_group 分组
             fallback_groups = {}
             no_fallback = []
-            
+
             for name, source in rss_items:
                 group = getattr(source, 'fallback_group', None)
                 if group:
@@ -140,32 +157,32 @@ class PriorityScheduler:
                     fallback_groups[group].append((priority, name, source))
                 else:
                     no_fallback.append((name, source))
-            
+
             # 处理有 fallback 的组
             for group_name, items in fallback_groups.items():
                 # 按 fallback_priority 排序
                 items.sort(key=lambda x: x[0])
-                print(f"    🔄 Fallback group: {group_name}")
-                
+                _print_progress(f"    🔄 Fallback group: {group_name}")
+
                 success = False
                 for priority, name, source in items:
                     if success:
                         # 已经成功，跳过后续
-                        print(f"      ⏭️  {name} (skipped, already have data)")
+                        _print_progress(f"      ⏭️  {name} (skipped, already have data)")
                         results[name] = None
                         continue
-                    
-                    print(f"      - {name} (priority={priority})...")
+
+                    _print_progress(f"      - {name} (priority={priority})...")
                     result = fetch_func(name, source)
                     results[name] = result
                     
                     # 检查是否成功
                     if result and result.status in ['success', 'degraded']:
-                        print(f"      ✅ {name}")
+                        _print_progress(f"      ✅ {name}")
                         success = True
                     else:
-                        print(f"      ❌ {name}, trying next...")
-            
+                        _print_progress(f"      ❌ {name}, trying next...")
+
             # 处理没有 fallback 的源（并发执行）
             if no_fallback:
                 with ThreadPoolExecutor(max_workers=self.rss_concurrency) as executor:
@@ -178,9 +195,9 @@ class PriorityScheduler:
                         name = future_to_name[future]
                         try:
                             results[name] = future.result()
-                            print(f"    ✅ {name}")
+                            _print_progress(f"    ✅ {name}")
                         except Exception as e:
-                            print(f"    ❌ {name}: {e}")
+                            _print_progress(f"    ❌ {name}: {e}")
                             results[name] = None
 
         return results
@@ -206,9 +223,9 @@ class PriorityScheduler:
             yf_sources = {n for n, s in sources.items()
                          if s.__class__.__name__ == 'YFinanceSource'}
 
-        print("\n" + "="*60)
-        print("🚀 开始优先级调度")
-        print("="*60)
+        _print_progress("\n" + "="*60)
+        _print_progress("🚀 开始优先级调度")
+        _print_progress("="*60)
 
         start_time = datetime.now()
 
@@ -228,12 +245,12 @@ class PriorityScheduler:
 
         # 打印汇总
         elapsed = (datetime.now() - start_time).total_seconds()
-        print(f"\n{'='*60}")
-        print(f"✅ 调度完成 (耗时 {elapsed:.1f}s)")
-        print(f"{'='*60}")
+        _print_progress(f"\n{'='*60}")
+        _print_progress(f"✅ 调度完成 (耗时 {elapsed:.1f}s)")
+        _print_progress(f"{'='*60}")
 
         success = sum(1 for r in all_results.values() if r is not None)
         total = len(all_results)
-        print(f"成功: {success}/{total}")
+        _print_progress(f"成功: {success}/{total}")
 
         return all_results

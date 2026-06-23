@@ -4,6 +4,7 @@
 管理所有数据源的生命周期，提供统一的访问接口
 """
 
+import sys
 from typing import Dict, List, Any, Optional
 from pathlib import Path
 import yaml
@@ -13,7 +14,22 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .base_source import BaseDataSource, DataSourceResult, DataItem
 from .history_store import HistoryStore
-from .priority_scheduler import PriorityScheduler
+
+
+# 全局安静模式标志（供 SourceRegistry 使用）
+_QUIET_MODE = False
+
+
+def set_registry_quiet_mode(quiet: bool):
+    """设置 SourceRegistry 的安静模式"""
+    global _QUIET_MODE
+    _QUIET_MODE = quiet
+
+
+def _registry_print(msg: str):
+    """进度信息始终输出到 stderr（不污染 stdout），安静模式时完全静默"""
+    if not _QUIET_MODE:
+        print(msg, file=sys.stderr)
 
 
 class SourceRegistry:
@@ -67,15 +83,15 @@ class SourceRegistry:
         for source_name, source_config in config.get('sources', {}).items():
             source_type = source_config.get('type')
             if source_type not in source_types:
-                print(f"⚠️  未知数据源类型: {source_type} ({source_name})")
+                _registry_print(f"⚠️  未知数据源类型: {source_type} ({source_name})")
                 continue
-            
+
             source_class = source_types[source_type]
             source = source_class(source_name, source_config)
-            
+
             if source.enabled:
                 self.register(source)
-                print(f"✅ 已加载: {source_name} ({source_type})")
+                _registry_print(f"✅ 已加载: {source_name} ({source_type})")
     
     def register(self, source: BaseDataSource):
         """注册数据源"""
@@ -95,7 +111,7 @@ class SourceRegistry:
         return list(self.sources.keys())
     
     def fetch_all(self, use_cache: bool = True, cache_ttl: int = 3600, concurrency: int = 4,
-                  yf_concurrency: int = 1, use_priority: bool = True) -> Dict[str, DataSourceResult]:
+                  yf_concurrency: int = 1, use_priority: bool = True, quiet: bool = False) -> Dict[str, DataSourceResult]:
         """
         获取所有数据源的数据
 
@@ -114,6 +130,7 @@ class SourceRegistry:
             concurrency: RSS/NewsAPI 并发数
             yf_concurrency: YF 源并发数（建议 1，避免限速）
             use_priority: 是否使用优先级调度
+            quiet: 安静模式（True 时进度信息输出到 stderr）
 
         Returns:
             Dict[source_name, DataSourceResult]
@@ -132,6 +149,12 @@ class SourceRegistry:
 
         if use_priority:
             # 使用优先级调度器
+            from .priority_scheduler import PriorityScheduler, set_quiet_mode
+
+            # 设置安静模式（同时传播到 registry 和 scheduler）
+            set_quiet_mode(quiet)
+            set_registry_quiet_mode(quiet)
+
             scheduler = PriorityScheduler(
                 yf_concurrency=yf_concurrency,
                 rss_concurrency=concurrency
@@ -151,7 +174,7 @@ class SourceRegistry:
             # Phase 1: YF 串行
             if yfinance_sources:
                 for name, source in yfinance_sources.items():
-                    print(f"🔄 {name}: 获取数据...")
+                    _registry_print(f"🔄 {name}: 获取数据...")
                     results[name] = fetch_func(name, source)
 
             # Phase 2: RSS/NewsAPI 并发
@@ -161,7 +184,7 @@ class SourceRegistry:
                         results[name] = fetch_func(name, source)
                 else:
                     workers = min(concurrency, len(other_sources))
-                    print(f"⚡ 并发获取 RSS/NewsAPI 数据（workers={workers}）...")
+                    _registry_print(f"⚡ 并发获取 RSS/NewsAPI 数据（workers={workers}）...")
 
                     with ThreadPoolExecutor(max_workers=workers) as executor:
                         future_to_name = {
@@ -174,7 +197,7 @@ class SourceRegistry:
                             try:
                                 results[source_name] = future.result()
                             except Exception as e:
-                                print(f"❌ {source_name}: {str(e)}")
+                                _registry_print(f"❌ {source_name}: {str(e)}")
                                 source = self.sources[source_name]
                                 results[source_name] = DataSourceResult(
                                     source_name=source_name,
@@ -213,11 +236,11 @@ class SourceRegistry:
             if use_cache and self.cache_dir:
                 cached = self._load_from_cache(source_name, ttl)
                 if cached:
-                    print(f"📦 {source_name}: 使用缓存")
+                    _registry_print(f"📦 {source_name}: 使用缓存")
                     return cached
 
             # 获取新数据
-            print(f"🔄 {source_name}: 获取数据...")
+            _registry_print(f"🔄 {source_name}: 获取数据...")
             fetch_start = datetime.now()
             result = source.fetch()
             fetch_duration_ms = int((datetime.now() - fetch_start).total_seconds() * 1000)
@@ -240,7 +263,7 @@ class SourceRegistry:
             if result.status == 'failed' and self.cache_dir:
                 stale = self._load_from_cache(source_name, ttl=999999999)  # 忽略过期
                 if stale:
-                    print(f"♻️  {source_name}: 回退到过期缓存 (status → degraded)")
+                    _registry_print(f"♻️  {source_name}: 回退到过期缓存 (status → degraded)")
                     stale.status = 'degraded'
                     stale.error = f"Fetch failed ({result.error}), using stale cache"
                     return stale
@@ -248,13 +271,13 @@ class SourceRegistry:
             return result
 
         except Exception as e:
-            print(f"❌ {source_name}: {str(e)}")
+            _registry_print(f"❌ {source_name}: {str(e)}")
 
             # 异常时也尝试回退到过期缓存
             if self.cache_dir:
                 stale = self._load_from_cache(source_name, ttl=999999999)
                 if stale:
-                    print(f"♻️  {source_name}: 回退到过期缓存 (status → degraded)")
+                    _registry_print(f"♻️  {source_name}: 回退到过期缓存 (status → degraded)")
                     stale.status = 'degraded'
                     stale.error = f"Exception ({e}), using stale cache"
                     return stale
@@ -337,7 +360,7 @@ class SourceRegistry:
         with open(output, 'w', encoding='utf-8') as f:
             json.dump(report, f, ensure_ascii=False, indent=2)
         
-        print(f"💾 报告已保存: {output}")
+        _registry_print(f"💾 报告已保存: {output}")
     
     def _load_from_cache(self, source_name: str, ttl: int) -> Optional[DataSourceResult]:
         """从缓存加载数据"""
@@ -443,7 +466,7 @@ class SourceRegistry:
                     pass
 
         if removed > 0:
-            print(f"🗑️  缓存清理: 删除 {removed} 个过期文件")
+            _registry_print(f"🗑️  缓存清理: 删除 {removed} 个过期文件")
 
         # Phase 2: 如果文件数仍然超过限制，删除最旧的
         cache_files = list(self.cache_dir.glob("*.json"))
@@ -454,6 +477,6 @@ class SourceRegistry:
             for f in cache_files[:excess]:
                 try:
                     f.unlink()
-                    print(f"🗑️  缓存清理: 删除多余文件 {f.name}")
+                    _registry_print(f"🗑️  缓存清理: 删除多余文件 {f.name}")
                 except Exception:
                     pass

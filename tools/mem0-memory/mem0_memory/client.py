@@ -22,15 +22,31 @@ except ImportError:
 
 
 def _get_config_path() -> Path:
-    """Get the path to the bundled config/mem0.yaml file."""
+    """Get the path to mem0.yaml config file.
+
+    Priority:
+    1. ~/.config/maybe-finance/mem0/mem0.yaml (user config, persistent)
+    2. Bundled config/mem0.yaml (default template, copied on first run)
+    """
+    user_config = Path.home() / ".config" / "maybe-finance" / "mem0" / "mem0.yaml"
+    if user_config.exists():
+        return user_config
+
     # Try to find the config file in the package
     try:
         config_file = files("mem0_memory").joinpath("config", "mem0.yaml")
-        # Convert to Path object
-        return Path(str(config_file))
+        package_path = Path(str(config_file))
     except (TypeError, AttributeError):
-        # Fallback to relative path if importlib.resources fails
-        return Path(__file__).parent / "config" / "mem0.yaml"
+        package_path = Path(__file__).parent / "config" / "mem0.yaml"
+
+    # First run: copy from package to user config dir
+    if package_path.exists():
+        user_config.parent.mkdir(parents=True, exist_ok=True)
+        import shutil
+        shutil.copy2(package_path, user_config)
+        return user_config
+
+    return package_path
 
 
 def _substitute_env_vars(value: str) -> str:
@@ -59,6 +75,41 @@ def _process_config(obj):
     elif isinstance(obj, list):
         return [_process_config(item) for item in obj]
     return obj
+
+
+def _patch_ollama_think_off():
+    """Monkey-patch Mem0's OllamaLLM to disable thinking mode.
+
+    gemma4:12b and similar models have a "thinking" mode that consumes
+    tokens before generating actual content. Mem0 doesn't pass think=False,
+    so we patch it here.
+    """
+    try:
+        from mem0.llms.ollama import OllamaLLM
+        original_generate = OllamaLLM.generate_response
+
+        def patched_generate(self, messages, response_format=None, tools=None, tool_choice="auto", **kwargs):
+            # Call original but intercept the chat call to add think=False
+            original_client_chat = None
+            if hasattr(self, 'client'):
+                original_client_chat = self.client.chat
+                def patched_chat(**params):
+                    params['think'] = False  # top-level param, not in options
+                    return original_client_chat(**params)
+                self.client.chat = patched_chat
+            try:
+                return original_generate(self, messages, response_format, tools, tool_choice, **kwargs)
+            finally:
+                if original_client_chat and hasattr(self, 'client'):
+                    self.client.chat = original_client_chat
+
+        OllamaLLM.generate_response = patched_generate
+    except (ImportError, AttributeError):
+        pass
+
+
+# Apply patch on import
+_patch_ollama_think_off()
 
 
 class Mem0Client:
@@ -107,6 +158,35 @@ class Mem0Client:
             self._memory = Memory.from_config(mem0_config)
         except Exception as e:
             raise RuntimeError(f"Failed to initialize Mem0: {e}")
+
+        # Patch OllamaLLM 实例：禁用 thinking 模式
+        # gemma4:12b 等模型的 thinking 会消耗所有 token，导致返回空内容
+        llm = getattr(self._memory, 'llm', None)
+        if llm and hasattr(llm, 'client') and hasattr(llm.client, 'chat'):
+            _orig_chat = llm.client.chat
+
+            def _patched_chat(**params):
+                # 强制 think=False（gemma4/lfm2.5 等模型的 thinking 会消耗 token）
+                params['think'] = False
+                # gemma4:12b 在 format=json + 复杂 prompt 下会卡住，
+                # 移除 format=json 让模型自由输出，再从文本中提取 JSON
+                params.pop('format', None)
+                r = _orig_chat(**params)
+                # 如果返回的不是纯 JSON，尝试提取 JSON 部分
+                msg = r.message if hasattr(r, 'message') else r.get('message', {})
+                content = msg.get('content', '')
+                if content and not content.strip().startswith('{'):
+                    import re, json as _json
+                    match = re.search(r'\{.*\}', content, re.DOTALL)
+                    if match:
+                        try:
+                            parsed = _json.loads(match.group())
+                            msg['content'] = _json.dumps(parsed)
+                        except _json.JSONDecodeError:
+                            pass
+                return r
+
+            llm.client.chat = _patched_chat
 
         # 从配置加载分类列表
         self.categories = self._config.get("categories", [])

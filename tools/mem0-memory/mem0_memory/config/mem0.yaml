@@ -8,13 +8,13 @@ mem0:
       collection_name: family_finance_memory
       embedding_model_dims: 1024
 
-  # LLM 配置 — 使用百炼（OpenAI 兼容接口）
+  # LLM 配置 — 使用本地 Ollama（lfm2.5，无需外部 API）
   llm:
-    provider: openai
+    provider: ollama
     config:
-      model: ${OPENAI_MODELS:-gpt-4o-mini}
-      api_key: ${OPENAI_API_KEY}
-      openai_base_url: ${OPENAI_API_BASE:-}
+      model: lfm2.5:latest
+      ollama_base_url: ${OLLAMA_HOST:-http://localhost:11434}
+      max_tokens: 20000
 
   # 嵌入模型配置 — 使用本地 Ollama（embedding 走本地，省钱且快）
   embedder:

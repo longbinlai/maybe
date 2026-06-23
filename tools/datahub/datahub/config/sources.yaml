@@ -347,14 +347,18 @@ sources:
     cache_ttl: 7200
     retention_days: 90
     tickers:
-      - "^GSPC"
-      - "^DJI"
-      - "GC=F"
-      - "CL=F"
+      - "^GSPC"      # S&P 500 — 美国市场
+      - "^DJI"       # Dow Jones — 美国市场
+      - "^IXIC"      # NASDAQ — 科技股
+      - "^HSI"       # Hang Seng — 港股
+      - "GC=F"       # 黄金期货 — 大宗商品
+      - "CL=F"       # 原油期货 — 大宗商品
+      - "EURUSD=X"  # 欧元/美元 — 外汇
+      - "000001.SS"  # 上证综指 — A股
     data_type: news
     validation:
-      min_items: 5
-      max_age_days: 3
+      min_items: 3
+      max_age_days: 7
 
   # === 新闻 API ===
 

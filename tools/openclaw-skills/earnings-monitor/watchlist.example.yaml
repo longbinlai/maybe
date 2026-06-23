@@ -1,0 +1,10 @@
+auto_sync_holdings: true
+extra_tickers:
+- ticker: NFLX
+  name: Netflix
+  added_at: 2026-06-23
+- ticker: BABA
+  name: 阿里巴巴
+  added_at: 2026-06-23
+exclude_tickers:
+- AAPL

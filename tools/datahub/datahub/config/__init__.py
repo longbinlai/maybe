@@ -2,20 +2,43 @@
 DataHub 配置模块
 
 提供配置文件路径解析和默认缓存目录。
+配置文件优先从 ~/.config/maybe-finance/datahub/ 读取（用户自定义），
+如果不存在则回退到包内默认模板。
 """
 
 from pathlib import Path
 import importlib.resources as _resources
+import shutil
+
+
+# 用户配置目录（持久化，安装不会覆盖）
+_USER_CONFIG_DIR = Path.home() / ".config" / "maybe-finance" / "datahub"
 
 
 def get_config_path(filename: str = "sources.yaml") -> Path:
-    """获取包内配置文件的路径
+    """获取配置文件路径
 
-    使用 importlib.resources 定位打包在 datahub 内的配置文件，
-    无论包以 editable 还是 site-packages 方式安装都能正确找到。
+    优先级：
+    1. ~/.config/maybe-finance/datahub/<filename> （用户自定义，持久化）
+    2. 包内 datahub/config/<filename> （默认模板）
+
+    首次运行时自动从包内模板复制到用户配置目录。
     """
+    user_path = _USER_CONFIG_DIR / filename
+    if user_path.exists():
+        return user_path
+
+    # 回退到包内默认
     ref = _resources.files("datahub.config").joinpath(filename)
-    return Path(str(ref))
+    package_path = Path(str(ref))
+
+    # 首次运行：从包内复制到用户配置目录
+    if package_path.exists():
+        _USER_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(package_path, user_path)
+        return user_path
+
+    return package_path
 
 
 def get_cache_dir() -> Path:

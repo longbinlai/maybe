@@ -447,7 +447,7 @@ def reconcile_all(api_key, url, as_json):
 @click.option("--name", "-n", required=True, help="Transaction name/title")
 @click.option("--description", help="Optional description")
 @click.option("--notes", help="Optional notes")
-@click.option("--currency", help="Currency (defaults to family currency)")
+@click.option("--currency", help="Currency (defaults to account currency)")
 @click.option("--category", help="Category name (fuzzy match)")
 @click.option("--merchant", help="Merchant name (fuzzy match)")
 @click.option("--tag", "tags", multiple=True, help="Tag name(s) (can specify multiple)")
@@ -457,7 +457,7 @@ def add_transaction(api_key, url, as_json, account, date, amount, name,
                    description, notes, currency, category, merchant, tags, nature):
     """Add a new transaction with optional tags."""
     c = _client(api_key, url)
-    
+
     # 1. Fuzzy match account
     accs = c.accounts().get("accounts", [])
     matched_acc = _fuzzy_match(account, accs, key="name")
@@ -468,6 +468,12 @@ def add_transaction(api_key, url, as_json, account, date, amount, name,
             click.echo(f"❌ Account not found: {account}")
             click.echo(f"   Available: {', '.join(a['name'] for a in accs[:10])}")
         sys.exit(1)
+
+    # Default currency to the account's currency
+    if not currency:
+        currency = matched_acc.get("currency")
+        if currency:
+            click.echo(f"   Using account currency: {currency}", err=True)
     
     # 2. Fuzzy match category (if provided)
     category_id = None

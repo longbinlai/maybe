@@ -31,6 +31,7 @@ Record financial events in Maybe Finance. Supports three operation types: balanc
 - **ALWAYS query real data first** via `maybe accounts` before any write operation.
 - **ALWAYS dry-run and confirm** before executing. Never write without user confirmation.
 - **NEVER fabricate data.** All numbers must come from user input or CLI output.
+- **NEVER mix Valuation and Transaction on the same date.** If you created a Valuation (`maybe reconcile`) and the user then asks to use transactions instead, you MUST first delete the Valuation entry via the Maybe API before creating the Transaction. Otherwise both entries will coexist and cause double-counting.
 - **Fuzzy match account names.** If ambiguous, list candidates and ask user to clarify.
 
 ## When NOT to Use
@@ -70,16 +71,20 @@ maybe add-transaction \
   -d "<date>" \
   -m <amount> \
   -n "<name>" \
+  --currency <CURRENCY> \
   --tag "<tag1>" \
   --nature <income|expense>
 ```
 
+**⚠️ Currency is critical.** The CLI defaults to the account's currency, but you MUST verify the currency matches the user's intent. If the account is CNY and the user says "利息收入 6891.61", the currency is CNY (¥6,891.61), not USD ($6,891.61). A wrong currency causes the amount to be converted via exchange rate, inflating or deflating the actual value.
+
 Flow:
-1. Parse user input: account, amount, name, date, nature
-2. Query available tags: `maybe tags --json`
-3. Auto-match tag based on transaction name (see `{baseDir}/references/auto-tag-rules.md`)
-4. Execute `maybe add-transaction` with matched tags
-5. Confirm result
+1. Parse user input: account, amount, name, date, nature, **currency**
+2. Look up the account's currency via `maybe accounts` — if user doesn't specify currency, use the account's currency
+3. Query available tags: `maybe tags --json`
+4. Auto-match tag based on transaction name (see `{baseDir}/references/auto-tag-rules.md`)
+5. Execute `maybe add-transaction` with `--currency` explicitly set
+6. Confirm result
 
 **Transfers between accounts** (e.g., fund redemption): create TWO transactions — expense from source + income to destination.
 
@@ -120,3 +125,4 @@ The Maybe API automatically triggers `sync_later` after any holding operation (a
 | Maybe unreachable | Report: "Maybe is not running. Start: `docker compose up -d`" |
 | 401 Unauthorized | Report: "API key invalid. Regenerate in Maybe → Settings → API Keys" |
 | Same-date valuation | Report: "Already updated today. Use `--date YYYY-MM-DD` for a different date" |
+| User asks to switch from reconcile to transaction | First delete the Valuation entry created by `maybe reconcile` on that date, THEN create the transaction. Never leave both on the same date. |

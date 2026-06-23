@@ -10,14 +10,20 @@ Yahoo Finance 数据源实现
 
 from typing import List
 from datetime import datetime, timedelta
+import sys
 import time
 import yfinance as yf
 
 from ..core.base_source import BaseDataSource, DataSourceResult, DataItem
 
 # 每次请求之间的最小间隔（秒），避免触发 Yahoo 限速
-_REQUEST_DELAY = 2.0
+_REQUEST_DELAY = 1.0
 _MAX_RETRIES = 2
+
+
+def _log(msg: str):
+    """进度信息输出到 stderr（不污染 stdout）"""
+    print(msg, file=sys.stderr)
 
 
 def _retry_on_rate_limit(func, max_retries=_MAX_RETRIES):
@@ -28,7 +34,7 @@ def _retry_on_rate_limit(func, max_retries=_MAX_RETRIES):
         except Exception as e:
             if attempt < max_retries and "Too Many Requests" in str(e):
                 wait = (2 ** attempt) * 3
-                print(f"⏳ 限速等待 {wait}s...")
+                _log(f"⏳ 限速等待 {wait}s...")
                 time.sleep(wait)
                 continue
             raise
@@ -127,6 +133,13 @@ class YFinanceSource(BaseDataSource):
 
                 price = latest['Close']
                 prev_price = prev['Close']
+
+                # 跳过 NaN 值（某些 ticker 如 000001.SS 可能返回 NaN）
+                import math
+                if price is None or (isinstance(price, float) and math.isnan(price)):
+                    _log(f"⚠️  {ticker_symbol}: 价格为 NaN，跳过")
+                    continue
+
                 change = price - prev_price
                 change_pct = (change / prev_price * 100) if prev_price != 0 else 0
 
@@ -167,7 +180,7 @@ class YFinanceSource(BaseDataSource):
                 ))
 
             except Exception as e:
-                print(f"⚠️  解析 {ticker_symbol} 数据失败: {str(e)}")
+                _log(f"⚠️  解析 {ticker_symbol} 数据失败: {str(e)}")
                 continue
 
         # 验证数据质量
@@ -203,24 +216,45 @@ class YFinanceSource(BaseDataSource):
                 news = _retry_on_rate_limit(lambda s=ticker_symbol: yf.Ticker(s).news)
 
                 for article in (news or [])[:10]:  # 每个 ticker 最多 10 条
-                    title = article.get('title', '').strip()
+                    # yfinance API 格式变更：标题等内容嵌套在 content 下
+                    content_obj = article.get('content', article)
+
+                    title = content_obj.get('title', '').strip()
                     if not title:
                         continue
 
-                    link = article.get('link', '')
-                    publisher = article.get('publisher', 'Unknown')
+                    # URL: 优先 canonicalUrl，其次 clickThroughUrl
+                    canonical = content_obj.get('canonicalUrl', {})
+                    click_url = content_obj.get('clickThroughUrl', {})
+                    link = (canonical or {}).get('url', '') or (click_url or {}).get('url', '')
 
-                    pub_time = article.get('providerPublishTime')
-                    published = datetime.fromtimestamp(pub_time) if pub_time else datetime.now()
+                    # 发布者
+                    provider = content_obj.get('provider', {})
+                    publisher = provider.get('displayName', 'Unknown')
 
-                    item_id = DataItem.generate_id(self.name, link, title)
+                    # 发布时间: 优先 pubDate (ISO 8601)，其次 providerPublishTime (Unix timestamp)
+                    pub_date_str = content_obj.get('pubDate')
+                    if pub_date_str:
+                        try:
+                            published = datetime.fromisoformat(pub_date_str.replace('Z', '+00:00'))
+                            published = published.replace(tzinfo=None)
+                        except ValueError:
+                            published = datetime.now()
+                    else:
+                        pub_time = article.get('providerPublishTime')
+                        published = datetime.fromtimestamp(pub_time) if pub_time else datetime.now()
+
+                    # 摘要
+                    summary = content_obj.get('summary', '') or content_obj.get('description', '')
+
+                    item_id = DataItem.generate_id(self.name, link or title, title)
 
                     items.append(DataItem(
                         id=item_id,
                         source=self.name,
                         category=self.category,
                         title=f"[{ticker_symbol}] {title}",
-                        content=f"来源: {publisher}",
+                        content=f"来源: {publisher}" + (f"\n摘要: {summary}" if summary else ""),
                         url=link,
                         published=published,
                         metadata={
@@ -230,7 +264,7 @@ class YFinanceSource(BaseDataSource):
                     ))
 
             except Exception as e:
-                print(f"⚠️  获取 {ticker_symbol} 新闻失败: {str(e)}")
+                _log(f"⚠️  获取 {ticker_symbol} 新闻失败: {str(e)}")
                 continue
 
         validation = self.validate(items)
@@ -296,7 +330,7 @@ class YFinanceSource(BaseDataSource):
                 ))
 
             except Exception as e:
-                print(f"⚠️  获取 {ticker_symbol} 信息失败: {str(e)}")
+                _log(f"⚠️  获取 {ticker_symbol} 信息失败: {str(e)}")
                 continue
 
         validation = self.validate(items)

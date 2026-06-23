@@ -17,17 +17,17 @@ description: "Collect and summarize macroeconomic information: central bank poli
 ## 调用方式
 
 ```bash
-# 生成摘要（人类可读格式）
-~/pyenv/maybe/bin/python3 ~/Documents/git/maybe/tools/openclaw-skills/macro-info-collector/scripts/collect_macro_info.py --summary
+# 生成摘要（人类可读格式）— 用于 cron job / 飞书发送
+~/pyenv/maybe/bin/python3 ~/Documents/git/maybe/tools/openclaw-skills/macro-info-collector/scripts/collect_macro_info.py --summary --quiet
 
 # 输出 JSON（程序处理格式）
-~/pyenv/maybe/bin/python3 ~/Documents/git/maybe/tools/openclaw-skills/macro-info-collector/scripts/collect_macro_info.py
+~/pyenv/maybe/bin/python3 ~/Documents/git/maybe/tools/openclaw-skills/macro-info-collector/scripts/collect_macro_info.py --quiet
 
 # 仅获取 YFinance 数据（跳过 RSS，速度更快）
-~/pyenv/maybe/bin/python3 ~/Documents/git/maybe/tools/openclaw-skills/macro-info-collector/scripts/collect_macro_info.py --summary --yfinance-only
+~/pyenv/maybe/bin/python3 ~/Documents/git/maybe/tools/openclaw-skills/macro-info-collector/scripts/collect_macro_info.py --summary --quiet --yfinance-only
 
 # 不使用缓存（强制刷新）
-~/pyenv/maybe/bin/python3 ~/Documents/git/maybe/tools/openclaw-skills/macro-info-collector/scripts/collect_macro_info.py --summary --no-cache
+~/pyenv/maybe/bin/python3 ~/Documents/git/maybe/tools/openclaw-skills/macro-info-collector/scripts/collect_macro_info.py --summary --quiet --no-cache
 ```
 
 ## 参数说明
@@ -86,4 +86,11 @@ S&P 500: 5,450 (+0.8%)
 ## 依赖
 
 - datahub (Python 包，已安装到 ~/pyenv/maybe)
+- Ollama 本地模型 (gemma4:12b，用于新闻标题翻译，`think: false` 模式)
 - Python 3.14 (~/pyenv/maybe/bin/python3)
+
+## 输出说明
+
+- **stdout**: 仅输出格式化报告（由 OpenClaw delivery 机制发送到飞书）
+- **stderr**: 所有进度信息（不会发送到飞书）
+- `--quiet` 参数会完全静默进度信息（推荐 cron job 使用）

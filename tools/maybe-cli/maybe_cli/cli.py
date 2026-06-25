@@ -1310,6 +1310,85 @@ def daily_sync(api_key, url, as_json, dry_run):
                 click.echo(f"  ❌ {e.get('pair', '?')}: {e.get('error', 'unknown')}")
 
 
+# ── portfolio ─────────────────────────────────────────────────────────────
+
+@main.group("portfolio")
+def portfolio_group():
+    """Investment allocation analysis vs a target policy (asset-class based)."""
+    pass
+
+
+@portfolio_group.command("analyze")
+@_api_key_opt
+@_url_opt
+@click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
+@click.option("--policy", "policy_path", default=None, help="Path to policy.yaml")
+def portfolio_analyze(api_key, url, as_json, policy_path):
+    """Current allocation vs target + drift + single-security concentration.
+
+    数据来源：账户/持仓/总资产 → Maybe；汇率 → Maybe exchange rates；
+    目标配置 → ~/.config/maybe-finance/portfolio/policy.yaml。仅客观计算，非投资建议。
+    """
+    from . import portfolio as pf
+    pol = pf.load_policy(policy_path)
+    c = _client(api_key, url)
+    try:
+        bs = c.balance_sheet()
+        accs = c.accounts()
+        hs = c.holdings()
+        rates = c.exchange_rates().get("exchange_rates", [])
+    finally:
+        c.close()
+
+    snap = {
+        "currency": bs.get("currency"),
+        "total_assets": bs.get("assets", {}).get("current"),
+        "accounts": accs.get("accounts", []),
+        "holdings": hs.get("holdings", []),
+    }
+    result = pf.analyze(snap, rates, pol)
+
+    if as_json:
+        click.echo(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+        return
+
+    base = result["base_currency"]
+    click.echo(f"=== 资产配置分析（基准币 {base}）===")
+    click.echo(f"总资产(自算): {_fmt_num(result['total_assets'])} {base}")
+    rec = result.get("reconciliation")
+    if rec:
+        click.echo(f"  vs Maybe total_assets {_fmt_num(rec['maybe_total_assets'])} (差 {rec['diff_pct']}%)")
+    click.echo()
+    click.echo(f"{'类别':<10}{'实际':>9}{'目标':>8}{'漂移':>9}  状态")
+    for a in result["allocation"]:
+        click.echo(f"{a['class']:<10}{a['actual_pct']:>8.1f}%{a['target_pct']:>7.0f}%{a['drift_pct']:>+8.1f}%  {a['status']}")
+    if result["rebalance"]:
+        click.echo("\n再平衡提示（仅供参考，非投资建议）:")
+        for r in result["rebalance"]:
+            click.echo(f"  {r['class']}: {r['action']} ~{_fmt_num(r['amount'])} {r['currency']}")
+    breaches = [x for x in result["concentration"] if x["breach"]]
+    if breaches:
+        click.echo(f"\n⚠️ 单一证券超限 (>{breaches[0]['limit_pct']:.0f}%):")
+        for x in breaches:
+            click.echo(f"  {x['ticker']}: {x['pct']}%")
+    elif result["concentration"]:
+        top = result["concentration"][0]
+        click.echo(f"\n单一证券集中度 OK（最高 {top['ticker']} {top['pct']}% ≤ {top['limit_pct']:.0f}%）")
+    for w in result["warnings"]:
+        click.echo(f"⚠️ {w}", err=True)
+
+
+@portfolio_group.command("policy")
+@click.option("--policy", "policy_path", default=None, help="Path to policy.yaml")
+def portfolio_policy(policy_path):
+    """Show the policy file location and contents (creates from template on first run)."""
+    from . import portfolio as pf
+    pf.load_policy(policy_path)  # ensure created from template
+    path = Path(policy_path) if policy_path else pf.POLICY_PATH
+    click.echo(f"Policy file: {path}\n")
+    click.echo(path.read_text(encoding="utf-8"))
+
+
 # ── audit ───────────────────────────────────────────────────────────────
 
 @main.command("audit")

@@ -21,6 +21,54 @@ except ImportError:
     Memory = None  # type: ignore[assignment,misc]
 
 
+# ── 记忆分类白名单 / Memory category whitelist ───────────────────────────────
+# 权威分类来源（docs/mem0-architecture.md）。配置文件里的 categories 仅用于
+# stats 显示，不参与校验——校验以下面这两个常量为准，避免脏分类污染向量库。
+#
+# 黄金法则：Maybe 能回答的客观数据不要存进 Mem0，Mem0 只存主观经验/决策理由。
+ACTIVE_CATEGORIES = (
+    "investment_decision",  # 买卖决策的理由、背景、预期
+    "lesson_learned",       # 经验教训
+    "market_view",          # 对市场/板块/趋势的看法
+    "investment_style",     # 风险偏好、投资风格、行为模式
+    "family_goal",          # 家庭长期目标与里程碑
+    "weekly_review",        # 周度回顾
+    "monthly_review",       # 月度回顾
+)
+
+# 已废弃分类 → 指向正确去处的说明
+DEPRECATED_CATEGORIES = {
+    "portfolio_insight": "客观组合数据应查 Maybe Finance，不应存入 Mem0",
+    "allocation_strategy": "已合并到 'investment_style'",
+    "market_event": "客观市场事件/行情应查 DataHub，不应存入 Mem0",
+}
+
+
+def validate_category(category: str) -> str:
+    """校验记忆分类，返回规范化后的分类名。
+
+    Raises:
+        ValueError: 分类为空、已废弃、或不在白名单内时抛出，附带可读提示。
+    """
+    cat = (category or "").strip()
+    if not cat:
+        raise ValueError(
+            "Category is required. Valid categories: "
+            + ", ".join(ACTIVE_CATEGORIES)
+        )
+    if cat in DEPRECATED_CATEGORIES:
+        raise ValueError(
+            f"Category '{cat}' is deprecated ({DEPRECATED_CATEGORIES[cat]}). "
+            f"Valid categories: {', '.join(ACTIVE_CATEGORIES)}"
+        )
+    if cat not in ACTIVE_CATEGORIES:
+        raise ValueError(
+            f"Unknown category '{cat}'. Valid categories: "
+            + ", ".join(ACTIVE_CATEGORIES)
+        )
+    return cat
+
+
 def _get_config_path() -> Path:
     """Get the path to mem0.yaml config file.
 
@@ -201,7 +249,11 @@ class Mem0Client:
 
         Returns:
             The Mem0 response dict with memory id and status.
+
+        Raises:
+            ValueError: 如果 category 已废弃或不在白名单内。
         """
+        category = validate_category(category)
         meta = {
             "category": category,
             "created_at": datetime.now(timezone.utc).isoformat(),

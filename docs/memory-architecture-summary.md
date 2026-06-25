@@ -195,9 +195,11 @@ export QDRANT_PORT="6333"
 
 ### 配置文件位置
 
-1. **项目级**: `/Users/longbinlai/Documents/git/maybe/.env`
+1. **项目级**: `<项目根目录>/.env`（即 maybe 仓库根目录下的 `.env`）
 2. **OpenClaw Gateway**: `~/.openclaw/service-env/ai.openclaw.gateway.env`
-3. **Mem0 CLI**: `~/pyenv/maybe/lib/python3.14/site-packages/mem0_memory/config/mem0.yaml`
+3. **Mem0 CLI**: `~/.config/maybe-finance/mem0/mem0.yaml`（持久化用户配置，首次运行时自动从包内模板复制）
+   - ⚠️ 不要编辑 `site-packages/mem0_memory/config/mem0.yaml`——那只是默认模板，`pip install/upgrade` 会覆盖它。
+   - 记忆分类白名单以代码 `mem0_memory/client.py` 的 `ACTIVE_CATEGORIES` 为准；yaml 里的 `categories` 仅供展示。
 
 ---
 

@@ -6,15 +6,16 @@ RSS 数据源实现
 
 from typing import List
 from datetime import datetime
+import os
 import feedparser
-import ssl
 import requests
 import urllib3
 
 from ..core.base_source import BaseDataSource, DataSourceResult, DataItem, ValidationResult
 
-# 抑制 SSL 验证警告
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+def _truthy(val) -> bool:
+    return str(val).strip().lower() in ('1', 'true', 'yes', 'on')
 
 
 class RSSSource(BaseDataSource):
@@ -27,10 +28,23 @@ class RSSSource(BaseDataSource):
         self.max_items = config.get('max_items', 20)
         self.timeout = config.get('timeout', 15)  # 默认 15 秒超时
 
-        # 忽略 SSL 验证（某些源需要）
-        self.ssl_context = ssl.create_default_context()
-        self.ssl_context.check_hostname = False
-        self.ssl_context.verify_mode = ssl.CERT_NONE
+        # SSL 校验默认开启（verify=True），避免 MITM 风险。
+        # 仅在以下任一显式开关被设置时才对该源关闭校验：
+        #   - 源配置字段 insecure / verify_ssl=False
+        #   - 全局环境变量 DATAHUB_RSS_INSECURE（已知有证书问题的源）
+        if 'verify_ssl' in config:
+            self.verify_ssl = bool(config.get('verify_ssl'))
+        elif config.get('insecure'):
+            self.verify_ssl = False
+        elif _truthy(os.environ.get('DATAHUB_RSS_INSECURE', '')):
+            self.verify_ssl = False
+        else:
+            self.verify_ssl = True
+
+        # 仅在显式关闭校验时才抑制 urllib3 的不安全警告，
+        # 不再静默全局关闭。
+        if not self.verify_ssl:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     def fetch(self) -> DataSourceResult:
         """获取 RSS 数据"""
@@ -39,7 +53,7 @@ class RSSSource(BaseDataSource):
             headers = {
                 'User-Agent': 'Mozilla/5.0 (compatible; DataHub/1.0)'
             }
-            response = requests.get(self.url, headers=headers, timeout=self.timeout, verify=False)
+            response = requests.get(self.url, headers=headers, timeout=self.timeout, verify=self.verify_ssl)
             response.raise_for_status()
 
             # 解析 RSS

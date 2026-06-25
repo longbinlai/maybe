@@ -118,12 +118,22 @@ class YFinanceSource(BaseDataSource):
         for ticker_symbol in self.tickers:
             try:
                 # 提取单个 ticker 的 OHLCV 数据
-                if is_multi and ticker_symbol in df.columns.get_level_values(0):
-                    ticker_df = df[ticker_symbol].dropna(how='all')
-                elif not is_multi:
-                    ticker_df = df.dropna(how='all')
+                if is_multi:
+                    # 多 ticker：必须是 MultiIndex 中存在的那一层，否则跳过
+                    if ticker_symbol in df.columns.get_level_values(0):
+                        ticker_df = df[ticker_symbol].dropna(how='all')
+                    else:
+                        continue
                 else:
-                    continue
+                    # 扁平列只在确实只请求了一个 ticker 时才代表该 ticker。
+                    # 若请求了多个 ticker 但 yf 返回扁平列（例如只有一个 ticker
+                    # 成功下载），不能把同一份 df 套到每个 ticker 上，否则会把
+                    # 错误数据混入其它 ticker。此时只接受请求列表中的那个 ticker。
+                    if len(self.tickers) > 1:
+                        _log(f"⚠️  请求 {len(self.tickers)} 个 ticker 但返回扁平列，"
+                             f"无法可靠归属到 {ticker_symbol}，跳过")
+                        continue
+                    ticker_df = df.dropna(how='all')
 
                 if ticker_df.empty or len(ticker_df) < 1:
                     continue
@@ -160,7 +170,16 @@ class YFinanceSource(BaseDataSource):
                 except Exception:
                     pub_date = datetime.now()
 
-                item_id = DataItem.generate_id(self.name, ticker_symbol, str(idx))
+                # ID 必须对相同 (source, ticker, date) 总是稳定：
+                # 不能用 str(idx)（依赖 pandas Timestamp 的 repr，含时区/时分秒
+                # 时表示会变）。规范化为 ISO 字符串保证确定性，
+                # 让 history_store 的 ON CONFLICT(id) DO NOTHING 可靠去重。
+                try:
+                    date_key = pub_date.isoformat()
+                except Exception:
+                    date_key = str(idx)
+
+                item_id = DataItem.generate_id(self.name, ticker_symbol, date_key)
 
                 items.append(DataItem(
                     id=item_id,

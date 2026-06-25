@@ -40,6 +40,35 @@ def _output(data: dict, as_json: bool):
         click.echo(json.dumps(data, indent=2, default=str))
 
 
+def _today_str() -> str:
+    """Today's date as YYYY-MM-DD (local)."""
+    from datetime import date
+    return date.today().isoformat()
+
+
+def _confirm_or_abort(message: str, yes: bool, as_json: bool, error_key: str):
+    """Block a risky write unless explicitly confirmed.
+
+    - `--yes/-y` 已给：直接放行。
+    - 非交互（--json 或非 TTY）：拒绝并退出，要求显式 --yes，绝不静默执行。
+    - 交互终端：打印警告并要求人工确认。
+    """
+    if yes:
+        return
+    if as_json or not sys.stdin.isatty():
+        payload = {
+            "error": error_key,
+            "message": message,
+            "hint": "re-run with --yes / -y to confirm",
+        }
+        click.echo(json.dumps(payload, indent=2, ensure_ascii=False), err=not as_json)
+        sys.exit(1)
+    click.echo(f"⚠️  {message}", err=True)
+    if not click.confirm("Proceed anyway?"):
+        click.echo("Aborted.", err=True)
+        sys.exit(1)
+
+
 # ── CLI group ───────────────────────────────────────────────────────────
 
 @click.group()
@@ -327,7 +356,9 @@ def snapshot(api_key, url, as_json):
 @click.option("--account", "account_name", required=True, help="Account name (fuzzy match)")
 @click.option("--balance", required=True, type=float, help="New balance amount")
 @click.option("--date", default=None, help="Valuation date (YYYY-MM-DD, defaults to today)")
-def reconcile(api_key, url, as_json, account_name, balance, date):
+@click.option("--yes", "-y", is_flag=True,
+              help="Skip safety confirmation (same-date transaction conflict)")
+def reconcile(api_key, url, as_json, account_name, balance, date, yes):
     """Quick reconciliation — update an account's balance.
 
     This is the primary command for periodic balance updates.
@@ -349,6 +380,25 @@ def reconcile(api_key, url, as_json, account_name, balance, date):
             click.echo(f"  {a['name']} ({a['account_type']}, {a['balance_formatted']})", err=True)
         c.close()
         raise SystemExit(1)
+
+    # Guard: 同一天不要既有 Transaction 又新建 Valuation，会破坏余额历史。
+    guard_date = date or _today_str()
+    try:
+        same_day = c.transactions(
+            account_id=match["id"], start_date=guard_date, end_date=guard_date
+        ).get("transactions", [])
+        if same_day:
+            _confirm_or_abort(
+                f"Account '{match['name']}' already has {len(same_day)} transaction(s) on "
+                f"{guard_date}. Adding a balance valuation on the same date corrupts balance "
+                f"history — use a different date or remove those transactions first.",
+                yes, as_json, "valuation_transaction_same_date",
+            )
+    except SystemExit:
+        c.close()
+        raise
+    except Exception as e:
+        click.echo(f"⚠️  Could not verify same-date transactions: {e}", err=True)
 
     old_balance = _float(match["balance"])
     delta = balance - old_balance
@@ -453,8 +503,10 @@ def reconcile_all(api_key, url, as_json):
 @click.option("--tag", "tags", multiple=True, help="Tag name(s) (can specify multiple)")
 @click.option("--nature", type=click.Choice(["income", "expense", "inflow", "outflow"]),
               help="Transaction nature (income/expense)")
+@click.option("--yes", "-y", is_flag=True,
+              help="Skip safety confirmations (cross-currency / same-date valuation)")
 def add_transaction(api_key, url, as_json, account, date, amount, name,
-                   description, notes, currency, category, merchant, tags, nature):
+                   description, notes, currency, category, merchant, tags, nature, yes):
     """Add a new transaction with optional tags."""
     c = _client(api_key, url)
 
@@ -469,12 +521,39 @@ def add_transaction(api_key, url, as_json, account, date, amount, name,
             click.echo(f"   Available: {', '.join(a['name'] for a in accs[:10])}")
         sys.exit(1)
 
+    acct_currency = matched_acc.get("currency")
+
     # Default currency to the account's currency
     if not currency:
-        currency = matched_acc.get("currency")
+        currency = acct_currency
         if currency:
             click.echo(f"   Using account currency: {currency}", err=True)
-    
+    elif acct_currency and currency.strip().upper() != acct_currency.strip().upper():
+        # 跨币种：金额会按汇率换算入账，写错币种会让资产记录严重失真。必须显式确认。
+        _confirm_or_abort(
+            f"Currency mismatch: transaction is {currency.upper()} but account "
+            f"'{matched_acc['name']}' is {acct_currency.upper()}. "
+            f"Amount {_fmt_num(amount)} {currency.upper()} will be converted via exchange rate.",
+            yes, as_json, "currency_mismatch",
+        )
+
+    # Guard: 同一天不要既有 Valuation(余额对账) 又有 Transaction，会破坏余额历史。
+    try:
+        existing_vals = c.valuations(matched_acc["id"]).get("valuations", [])
+        if any(v.get("date") == date for v in existing_vals):
+            _confirm_or_abort(
+                f"Account '{matched_acc['name']}' already has a balance valuation on {date}. "
+                f"Mixing a transaction with a valuation on the same date corrupts balance "
+                f"history — remove the valuation first or use a different date.",
+                yes, as_json, "valuation_transaction_same_date",
+            )
+    except SystemExit:
+        c.close()
+        raise
+    except Exception as e:
+        # 防护查询失败不应阻断正常写入，仅告警（best-effort）
+        click.echo(f"⚠️  Could not verify same-date valuation: {e}", err=True)
+
     # 2. Fuzzy match category (if provided)
     category_id = None
     if category:

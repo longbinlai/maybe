@@ -29,12 +29,17 @@
 
 x-db-env: &db_env
   POSTGRES_USER: ${POSTGRES_USER:-maybe_user}
-  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-maybe_password}
+  # REQUIRED: you MUST set POSTGRES_PASSWORD in your .env file to a strong value.
+  # Compose will refuse to start if it is unset. Do NOT use a weak/example value.
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set (define it in your .env file)}
   POSTGRES_DB: ${POSTGRES_DB:-maybe_production}
 
 x-rails-env: &rails_env
   <<: *db_env
-  SECRET_KEY_BASE: ${SECRET_KEY_BASE:-a7523c3d0ae56415046ad8abae168d71074a79534a7062258f8d1d51ac2f76d3c3bc86d86b6b0b307df30d9a6a90a2066a3fa9e67c5e6f374dbd7dd4e0778e13}
+  # REQUIRED: you MUST set SECRET_KEY_BASE in your .env file.
+  # Generate a unique value with: openssl rand -hex 64
+  # Compose will refuse to start if it is unset. Never reuse an example value.
+  SECRET_KEY_BASE: ${SECRET_KEY_BASE:?SECRET_KEY_BASE must be set (generate with: openssl rand -hex 64)}
   SELF_HOSTED: "true"
   RAILS_FORCE_SSL: "false"
   RAILS_ASSUME_SSL: "false"

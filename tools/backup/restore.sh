@@ -5,7 +5,8 @@
 set -e  # 遇到错误立即退出
 
 # ====== 配置 ======
-NAS_BACKUP_DIR="/Volumes/home/family-finance-backup"
+# 默认 NAS 备份目录（backup.sh 与 restore.sh 保持一致）
+DEFAULT_NAS_BACKUP_DIR="/Volumes/home/family-finance-backup"
 # ==================
 
 # 颜色输出
@@ -57,21 +58,25 @@ EOF
     exit 0
 }
 
-# 加载配置（从同目录的 .env.nas）
+# 加载配置（从同目录的 .env.nas，如果存在；与 backup.sh 行为一致）
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env.nas"
 
-if [ ! -f "$ENV_FILE" ]; then
-    log_error "配置文件不存在: $ENV_FILE"
-    log_error "请复制 $SCRIPT_DIR/.env.nas.example 为 $ENV_FILE 并填写配置"
-    exit 1
+if [ -f "$ENV_FILE" ]; then
+    source "$ENV_FILE"
+    log_info "已加载配置文件: $ENV_FILE"
+else
+    log_warn "配置文件不存在: $ENV_FILE"
+    log_warn "请复制 $SCRIPT_DIR/.env.nas.example 为 .env.nas 并填写配置"
+    log_warn "本次将使用默认 NAS 路径: $DEFAULT_NAS_BACKUP_DIR"
 fi
 
-source "$ENV_FILE"
+# 若 .env.nas 未提供 NAS_BACKUP_DIR，回退到统一默认值
+NAS_BACKUP_DIR="${NAS_BACKUP_DIR:-$DEFAULT_NAS_BACKUP_DIR}"
 
 # 验证配置
 if [ -z "$NAS_BACKUP_DIR" ]; then
-    log_error "NAS_BACKUP_DIR 未配置，请检查 $ENV_FILE"
+    log_error "NAS_BACKUP_DIR 未配置"
     exit 1
 fi
 
@@ -174,7 +179,21 @@ restore_backup() {
     fi
     
     log_info "开始恢复备份: $(basename "$backup_path")"
-    
+
+    # 0. 校验备份完整性（SHA256），不匹配则中止
+    CHECKSUM_FILE="$backup_path/SHA256SUMS.txt"
+    if [ -f "$CHECKSUM_FILE" ]; then
+        log_step "校验备份完整性 (SHA256)..."
+        if ( cd "$backup_path" && shasum -a 256 -c SHA256SUMS.txt ); then
+            log_info "SHA256 校验通过"
+        else
+            log_error "SHA256 校验失败：备份文件可能已损坏，已中止恢复"
+            exit 1
+        fi
+    else
+        log_warn "未找到 SHA256SUMS.txt，跳过完整性校验（旧版备份）"
+    fi
+
     # 显示备份清单
     MANIFEST=$(find "$backup_path" -name "manifest_*.txt" | head -1)
     if [ -f "$MANIFEST" ]; then

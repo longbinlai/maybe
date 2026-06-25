@@ -25,11 +25,13 @@ mem0:
       embedding_dims: 1024
 
 # 家庭理财记忆分类 / Memory categories for family finance
+# 权威白名单写死在 client.py 的 ACTIVE_CATEGORIES，校验以代码为准；此处仅供参考/展示。
+# 已废弃（不要使用）: market_event(查 DataHub)、portfolio_insight(查 Maybe)、allocation_strategy(并入 investment_style)
 categories:
-  - investment_decision    # 买卖决策记录
-  - market_event           # 市场事件及影响
-  - portfolio_insight      # 投资组合洞察
-  - allocation_strategy    # 资产配置策略
+  - investment_decision    # 买卖决策的理由、背景、预期
   - lesson_learned         # 经验教训
+  - market_view            # 对市场/板块/趋势的看法
+  - investment_style       # 风险偏好、投资风格、行为模式
+  - family_goal            # 家庭长期目标与里程碑
   - weekly_review          # 周度回顾
   - monthly_review         # 月度回顾

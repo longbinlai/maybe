@@ -130,6 +130,9 @@ htmlcov/
 # Backup configuration (contains NAS credentials)
 tools/backup/.env.nas
 
+# Backup health-check / runtime logs (not source)
+tools/backup/*.log
+
 # Runtime config & state files (lives in ~/.config/maybe-finance/)
 tools/openclaw-skills/earnings-monitor/earnings_state.json
 tools/openclaw-skills/earnings-monitor/watchlist.yaml

@@ -8,7 +8,7 @@ import sys
 
 import click
 
-from .client import Mem0Client
+from .client import Mem0Client, validate_category
 from .migrator import MarkdownMigrator
 
 
@@ -57,8 +57,15 @@ def add(config_path, category, content, metadata):
 
     Example:
         memory add -c investment_decision --content "买入腾讯 100 股，理由：AI 业务增长"
-        memory add -c market_event --content "美联储加息 25bp" -m impact=high -m market=US
+        memory add -c market_view --content "长期看好 A 股，港股处于历史低位" -m confidence=7
     """
+    # 先校验分类，避免在连接 Qdrant/Ollama 之前就因脏分类浪费连接
+    try:
+        category = validate_category(category)
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        raise SystemExit(1)
+
     client = _get_client(config_path)
 
     # 解析 key=value 元数据

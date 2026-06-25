@@ -9,10 +9,19 @@ import sys
 import os
 import json
 import argparse
+import signal
+import threading
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 from datahub import SourceRegistry, get_config_path, get_cache_dir
+
+
+# Ollama 翻译服务配置 — 可用环境变量覆盖，默认本地（避免硬编码地址/模型名）。
+# 与 mem0/记忆系统统一使用 OLLAMA_HOST。
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
+OLLAMA_CHAT_URL = f"{OLLAMA_HOST}/api/chat"
+TRANSLATE_MODEL = os.environ.get("MACRO_TRANSLATE_MODEL", "translategemma:12b")
 
 
 # 常见英文财经词汇的中文映射（无需 API）
@@ -87,6 +96,31 @@ TITLE_TRANSLATIONS = {
     "signals": "暗示",
 }
 
+# 翻译系统提示词（含常见术语对照表，提升翻译质量）
+TRANSLATION_SYSTEM_PROMPT = (
+    "你是金融新闻翻译专家。将英文财经标题翻译成流畅自然的中文。\n"
+    "规则：1) 必须翻译所有英文内容，不要保留任何英文单词（股票代码如MU/AVGO/GOOGL保留） "
+    "2) 专有名词用中文通用译法 3) 每条独立翻译，不要混合 4) 只输出译文，每行一条。\n\n"
+    "常用译法参考：\n"
+    "- 机构：Fed=美联储, ECB=欧洲央行, BOJ=日本央行, PBOC=中国人民银行, IMF=国际货币基金组织, OPEC+=欧佩克+\n"
+    "- 指数：S&P 500=标普500, Nasdaq=纳斯达克, Dow Jones=道琼斯, Nikkei=日经, Hang Seng=恒生, Russell=罗素\n"
+    "- 公司：Micron=美光, Sandisk=闪迪, Apple=苹果, Nvidia=英伟达, Tesla=特斯拉, Microsoft=微软, "
+    "Meta=Meta, Amazon=亚马逊, Google/Alphabet=谷歌, Broadcom=博通, AMD=AMD, Intel=英特尔, "
+    "Barclays=巴克莱, Morgan Stanley=摩根士丹利, Goldman Sachs=高盛, UBS=瑞银, "
+    "SLB=斯伦贝谢, Baker Hughes=贝克休斯, Chevron=雪佛龙, ExxonMobil=埃克森美孚, "
+    "TechnipFMC=德希尼布FMC, Valaris=瓦拉里斯, Liberty Energy=自由能源, Seadrill=海钻, "
+    "Tenaris=泰纳里斯, Kosmos Energy=科斯莫斯能源, Permian Resources=二叠纪资源\n"
+    "- 术语：earnings=财报/盈利, revenue=营收, EPS=每股收益, guidance=业绩指引, "
+    "rate cut=降息, rate hike=加息, inflation=通胀, CPI=消费者价格指数, GDP=国内生产总值, "
+    "PMI=采购经理指数, treasury yield=国债收益率, bond=债券, futures=期货, "
+    "HBM=高带宽存储器, data center=数据中心, semiconductor=半导体, chip=芯片, "
+    "Strait of Hormuz=霍尔木兹海峡, Hezbollah=真主党, Lebanon=黎巴嫩, Israel=以色列, Iran=伊朗, "
+    "Bitcoin=比特币, gold=黄金, oil/crude=原油, copper=铜, natural gas=天然气, "
+    "spot ETF=现货ETF, offshore yuan=离岸人民币, short selling=做空, rally=反弹, plunge=暴跌\n"
+    "- 人名：Powell=鲍威尔, Lagarde=拉加德, Trump=特朗普\n"
+    "- 注意：stock trades down=股价下跌, what you need to know=你需要了解的信息"
+)
+
 # 翻译缓存（避免重复翻译相同的标题）
 translation_cache = {}
 
@@ -130,15 +164,15 @@ def translate_title_llm(title: str) -> str:
 
         try:
             response = requests.post(
-                "http://localhost:11434/api/chat",
+                OLLAMA_CHAT_URL,
                 json={
-                    "model": "lfm2.5:latest",
+                    "model": TRANSLATE_MODEL,
                     "messages": [
-                        {"role": "system", "content": "Output ONLY the Chinese translation. No explanations. No pinyin. No numbering."},
-                        {"role": "user", "content": f"Translate to Chinese: {title}"}
+                        {"role": "system", "content": TRANSLATION_SYSTEM_PROMPT},
+                        {"role": "user", "content": f"将以下英文财经标题翻译成中文（只输出译文，不要解释）：\n\n{title}"}
                     ],
                     "stream": False,
-                    "options": {"temperature": 0.3, "num_predict": 500, "think": False}
+                    "options": {"temperature": 0.2, "num_predict": 500, "think": False}
                 },
                 timeout=25
             )
@@ -176,29 +210,29 @@ def translate_titles_batch(titles: List[str]) -> List[str]:
         import requests
         import signal
 
-        # 设置超时（120秒，批量翻译 + thinking 模式）
+        # 设置超时（90秒，translategemma:12b 无 thinking，速度较快）
         def timeout_handler(signum, frame):
             raise TimeoutError("Batch translation timeout")
 
         old_handler = signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(120)
+        signal.alarm(90)
 
         try:
             # 构建批量翻译提示
             titles_text = "\n".join([f"{i+1}. {t}" for i, t in enumerate(titles_to_translate)])
 
             response = requests.post(
-                "http://localhost:11434/api/chat",
+                OLLAMA_CHAT_URL,
                 json={
-                    "model": "lfm2.5:latest",
+                    "model": TRANSLATE_MODEL,
                     "messages": [
-                        {"role": "system", "content": "你是专业的金融新闻翻译。将以下英文财经新闻标题翻译为简洁自然的中文。保留专有名词（如 S&P 500、BABA、ECB）和数字。每行一条，保持原有编号格式。只输出翻译结果，不要解释。"},
-                        {"role": "user", "content": f"将以下新闻标题翻译为中文：\n{titles_text}"}
+                        {"role": "system", "content": TRANSLATION_SYSTEM_PROMPT},
+                        {"role": "user", "content": f"翻译以下英文标题为中文（全部翻译成中文，不要保留英文，保持编号格式，每行一条）：\n\n{titles_text}\n\n译文："}
                     ],
                     "stream": False,
-                    "options": {"temperature": 0.3, "num_predict": 8000, "think": False}
+                    "options": {"temperature": 0.2, "num_predict": 8000, "think": False}
                 },
-                timeout=110
+                timeout=80
             )
             response.raise_for_status()
             data = response.json()
@@ -207,7 +241,7 @@ def translate_titles_batch(titles: List[str]) -> List[str]:
             translated_text = data.get("message", {}).get("content", "").strip()
 
             if not translated_text:
-                # 模型返回空内容（thinking 消耗了所有 token），回退到关键词翻译
+                # 模型返回空内容，回退到关键词翻译
                 log(f"⚠️ LLM 返回空内容，回退到关键词翻译")
                 return [translate_title_simple(title) for title in titles]
 
@@ -262,6 +296,7 @@ class MacroInfoCollector:
         self.registry = SourceRegistry(str(config_path), cache_dir=str(cache_dir))
         self.data = {}
         self.summary = {}
+        self.failed_sources = []  # 追踪失败的数据源
     
     def collect_all(self, use_cache: bool = True, timeout: int = 30, concurrency: int = 4) -> Dict:
         """收集所有数据
@@ -277,17 +312,106 @@ class MacroInfoCollector:
         import os
         os.environ['DATAHUB_TIMEOUT'] = str(timeout)
 
-        try:
-            results = self.registry.fetch_all(
-                use_cache=use_cache, 
-                concurrency=concurrency,
-                quiet=QUIET_MODE  # 传递安静模式标志
-            )
-        except Exception as e:
-            log(f"⚠️ 数据收集出错: {e}")
-            results = {}
+        results = {}
+        self.failed_sources = []  # 重置失败列表
 
-        # 整理数据
+        # 第一阶段：收集新闻数据（RSS/NewsAPI）- 这些不会卡住
+        log("📰 第一阶段：收集新闻数据...")
+        news_sources = {
+            name: source for name, source in self.registry.sources.items()
+            if source.__class__.__name__ in ['RSSSource', 'NewsAPISource']
+        }
+
+        for name, source in news_sources.items():
+            try:
+                result = self.registry._fetch_single(name, source, use_cache, timeout)
+                if result and result.status != 'failed':
+                    results[name] = result
+                else:
+                    self.failed_sources.append(name)
+                    log(f"  ⚠️ {name} 失败，将重试一次...")
+                    # 重试一次，使用更短的超时
+                    try:
+                        retry_result = self.registry._fetch_single(name, source, use_cache, min(timeout, 10))
+                        if retry_result and retry_result.status != 'failed':
+                            results[name] = retry_result
+                            self.failed_sources.remove(name)
+                            log(f"  ✓ {name} 重试成功")
+                    except Exception as retry_e:
+                        log(f"  ❌ {name} 重试也失败: {retry_e}")
+            except Exception as e:
+                self.failed_sources.append(name)
+                log(f"  ⚠️ {name} 失败: {e}")
+                # 重试一次
+                try:
+                    retry_result = self.registry._fetch_single(name, source, use_cache, min(timeout, 10))
+                    if retry_result and retry_result.status != 'failed':
+                        results[name] = retry_result
+                        self.failed_sources.remove(name)
+                        log(f"  ✓ {name} 重试成功")
+                except Exception as retry_e:
+                    log(f"  ❌ {name} 重试也失败: {retry_e}")
+
+        log(f"✓ 新闻数据收集完成：{len(results)} 个源成功，{len(self.failed_sources)} 个失败")
+        if self.failed_sources:
+            log(f"  失败源: {', '.join(self.failed_sources)}")
+        
+        # 立即生成新闻部分的摘要
+        self.data = {
+            "rates": {"fed_funds_rate": None, "treasury_10y": None, "ecb_rate": None, "boj_rate": None},
+            "fx": {"USDCNY": None, "USDJPY": None, "USDAUD": None, "AUDCNY": None, "EURUSD": None},
+            "commodities": {"gold": None, "oil": None, "copper": None},
+            "indicators": {"gdp_growth": None, "cpi": None, "unemployment": None, "pmi": None},
+            "news": self._extract_news(results),
+            "indices": {name: None for name in ["SP500", "DJI", "NASDAQ", "Russell2000", "HangSeng", "Shanghai", "Shenzhen", "CSI300", "Nikkei225", "FTSE100", "DAX", "STI"]},
+            "risk": {"vix": None, "treasury_10y": None, "treasury_5y": None, "treasury_13w": None, "dxy": None},
+            "china": {"hs300etf": None, "gold_etf": None, "bond_etf": None, "tracker_fund": None},
+        }
+        self.summary = self._generate_summary()
+        log(f"✓ 已生成新闻摘要：{len(self.summary.get('news', []))} 条")
+        
+        # 第二阶段：收集价格数据（yfinance）- 这些可能会卡住
+        log("💹 第二阶段：收集价格数据...")
+        yf_sources = {
+            name: source for name, source in self.registry.sources.items()
+            if source.__class__.__name__ == 'YFinanceSource'
+        }
+
+        yf_success = 0
+        for name, source in yf_sources.items():
+            try:
+                result = self.registry._fetch_single(name, source, use_cache, timeout)
+                if result and result.status != 'failed':
+                    results[name] = result
+                    yf_success += 1
+                else:
+                    self.failed_sources.append(name)
+                    log(f"  ⚠️ {name} 失败，将重试一次...")
+                    try:
+                        retry_result = self.registry._fetch_single(name, source, use_cache, min(timeout, 10))
+                        if retry_result and retry_result.status != 'failed':
+                            results[name] = retry_result
+                            yf_success += 1
+                            self.failed_sources.remove(name)
+                            log(f"  ✓ {name} 重试成功")
+                    except Exception as retry_e:
+                        log(f"  ❌ {name} 重试也失败: {retry_e}")
+            except Exception as e:
+                self.failed_sources.append(name)
+                log(f"  ⚠️ {name} 失败: {e}")
+                try:
+                    retry_result = self.registry._fetch_single(name, source, use_cache, min(timeout, 10))
+                    if retry_result and retry_result.status != 'failed':
+                        results[name] = retry_result
+                        yf_success += 1
+                        self.failed_sources.remove(name)
+                        log(f"  ✓ {name} 重试成功")
+                except Exception as retry_e:
+                    log(f"  ❌ {name} 重试也失败: {retry_e}")
+
+        log(f"✓ 价格数据收集完成：{yf_success} 个源成功")
+        
+        # 重新生成完整摘要
         self.data = {
             "rates": self._extract_rates(results),
             "fx": self._extract_fx(results),
@@ -298,31 +422,61 @@ class MacroInfoCollector:
             "risk": self._extract_risk(results),
             "china": self._extract_china(results),
         }
-
-        # 生成摘要
         self.summary = self._generate_summary()
 
         return self.data
+
+    def _load_from_cache_all(self) -> Dict:
+        """从缓存加载所有数据源"""
+        results = {}
+        cache_dir = self.registry.cache_dir
+        
+        if not cache_dir or not cache_dir.exists():
+            return results
+        
+        import pickle
+        from datetime import datetime, timedelta
+        
+        # 缓存有效期：24小时
+        cache_ttl = timedelta(hours=24)
+        
+        for source_name in self.registry.sources.keys():
+            cache_file = cache_dir / f"{source_name}.pkl"
+            if cache_file.exists():
+                try:
+                    with open(cache_file, 'rb') as f:
+                        cached_data = pickle.load(f)
+                    
+                    cache_time = cached_data.get('timestamp', datetime.min)
+                    if datetime.now() - cache_time < cache_ttl:
+                        results[source_name] = cached_data['result']
+                        log(f"  ✓ {source_name} (缓存)")
+                    else:
+                        log(f"  ⚠️ {source_name} 缓存已过期")
+                except Exception as e:
+                    log(f"  ⚠️ {source_name} 缓存读取失败: {e}")
+        
+        return results
 
     def collect_yfinance_only(self, use_cache: bool = True) -> Dict:
         """只收集 YFinance 数据（跳过 RSS，速度更快）"""
         log("🔄 仅收集 YFinance 数据...")
 
-        yfinance_sources = [
-            "yfinance_gold", "yfinance_oil", "yfinance_fx",
-            "yfinance_indices", "yfinance_risk", "yfinance_china", "yfinance_news"
-        ]
-
         results = {}
-        for source_name in yfinance_sources:
-            try:
-                source = self.registry.get_source(source_name)
-                if source:
-                    log(f"  获取 {source_name}...")
-                    result = source.fetch()
-                    results[source_name] = result
-            except Exception as e:
-                log(f"  ⚠️ {source_name} 失败: {e}")
+        
+        # 1. 合并获取所有 yfinance 价格数据（一次请求）
+        yf_price_result = self._collect_yfinance_prices_merged(use_cache=use_cache)
+        if yf_price_result:
+            results['yfinance_prices_merged'] = yf_price_result
+        
+        # 2. 单独获取 yfinance_news（需要逐 ticker 请求）
+        try:
+            source = self.registry.get_source('yfinance_news')
+            if source:
+                log("  获取 yfinance_news...")
+                results['yfinance_news'] = source.fetch()
+        except Exception as e:
+            log(f"  ⚠️ yfinance_news 失败: {e}")
         
         # 整理数据
         self.data = {
@@ -340,6 +494,234 @@ class MacroInfoCollector:
         self.summary = self._generate_summary()
 
         return self.data
+
+    def _collect_yfinance_prices_merged(self, use_cache: bool = True):
+        """合并获取所有 yfinance 价格数据（一次请求）
+        
+        把所有 yfinance 价格源的 tickers 合并，用 yf.download() 一次性获取，
+        避免多次请求触发 Yahoo 限流。
+        """
+        import yfinance as yf
+        import pandas as pd
+        from datetime import datetime
+        from datahub.core.base_source import DataSourceResult, DataItem, ValidationResult
+        
+        log("📊 合并获取 yfinance 价格数据...")
+        
+        # 收集所有 yfinance 价格源的 tickers
+        all_tickers = []
+        ticker_to_source = {}  # ticker -> 原始数据源名称
+        
+        yf_price_sources = [
+            'yfinance_gold', 'yfinance_oil', 'yfinance_fx',
+            'yfinance_indices', 'yfinance_risk', 'yfinance_china'
+        ]
+        
+        for source_name in yf_price_sources:
+            try:
+                source = self.registry.get_source(source_name)
+                if source and hasattr(source, 'tickers'):
+                    for ticker in source.tickers:
+                        if ticker not in all_tickers:
+                            all_tickers.append(ticker)
+                            ticker_to_source[ticker] = source_name
+            except Exception as e:
+                log(f"  ⚠️ 获取 {source_name} 配置失败: {e}")
+        
+        if not all_tickers:
+            log("  ⚠️ 没有找到任何 yfinance 价格 ticker")
+            return None
+        
+        log(f"  合并 {len(all_tickers)} 个 tickers: {', '.join(all_tickers[:5])}...")
+        
+        # 检查缓存
+        cache_dir = self.registry.cache_dir
+        cache_file = cache_dir / 'yfinance_prices_merged.pkl'
+        
+        if use_cache and cache_file.exists():
+            try:
+                import pickle
+                with open(cache_file, 'rb') as f:
+                    cached_data = pickle.load(f)
+                    cache_time = cached_data.get('time', datetime.min)
+                    if (datetime.now() - cache_time).total_seconds() < 14400:  # 4小时缓存
+                        log("  ✓ 使用缓存数据")
+                        return cached_data['result']
+            except Exception as e:
+                log(f"  ⚠️ 读取缓存失败: {e}")
+        
+        # 一次性下载所有 tickers（子进程硬超时，避免 yf.download 无限挂起）
+        import subprocess
+        import pickle as _pickle
+        
+        tickers_json = json.dumps(all_tickers)
+        
+        # 用子进程运行 yf.download，超时后强制杀掉
+        _yf_worker_script = f'''
+import json, sys, warnings
+warnings.filterwarnings("ignore")
+import yfinance as yf
+tickers = json.loads(sys.argv[1])
+try:
+    df = yf.download(tickers, period="5d", interval="1d", group_by="ticker",
+                     auto_adjust=True, progress=False, threads=False, timeout=10)
+    if df is not None and not df.empty:
+        # 保存结果到临时文件
+        import tempfile, pickle
+        tmp = tempfile.mktemp(suffix=".pkl")
+        with open(tmp, "wb") as f:
+            pickle.dump(df, f)
+        print(tmp)
+    else:
+        print("EMPTY")
+except Exception as e:
+    print(f"ERROR:{{e}}")
+'''
+        
+        df = None
+        try:
+            log(f"  🔄 下载 {len(all_tickers)} 个 tickers（子进程，30s超时）...")
+            proc = subprocess.run(
+                [sys.executable, '-c', _yf_worker_script, tickers_json],
+                capture_output=True, text=True, timeout=30
+            )
+            output = proc.stdout.strip()
+            if output and not output.startswith('ERROR') and output != 'EMPTY':
+                # 读取临时文件中的 DataFrame
+                import pickle as _pkl
+                with open(output, 'rb') as f:
+                    df = _pkl.load(f)
+                import os
+                os.unlink(output)
+                log(f"  ✓ 下载成功")
+            elif output == 'EMPTY':
+                log(f"  ⚠️ 返回空数据")
+            elif output.startswith('ERROR'):
+                error_msg = output[6:]
+                if 'Too Many Requests' in error_msg or 'RateLimit' in error_msg:
+                    log(f"  ⏳ Yahoo 限流，跳过价格数据")
+                else:
+                    log(f"  ⚠️ yf.download 失败: {error_msg}")
+        except subprocess.TimeoutExpired:
+            log(f"  ⏰ yfinance 超时(30s)，跳过价格数据")
+        except Exception as e:
+            log(f"  ⚠️ yfinance 异常: {e}")
+        
+        if df is None or df.empty:
+            log("  ⚠️ yf.download 失败，尝试使用缓存")
+            # 尝试使用缓存（包括过期缓存）
+            if cache_file.exists():
+                try:
+                    import pickle
+                    with open(cache_file, 'rb') as f:
+                        cached_data = pickle.load(f)
+                        log("  ✓ 使用缓存数据（可能过期）")
+                        return cached_data['result']
+                except Exception as e:
+                    log(f"  ⚠️ 读取缓存也失败: {e}")
+            log("  ⚠️ yfinance 完全失败，跳过价格数据，继续获取新闻")
+            return None
+        
+        # 解析数据，按原始数据源分组
+        items_by_source = {}  # source_name -> [DataItem]
+        is_multi = isinstance(df.columns, pd.MultiIndex)
+        
+        for ticker in all_tickers:
+            try:
+                # 提取单个 ticker 的数据
+                if is_multi and ticker in df.columns.get_level_values(0):
+                    ticker_df = df[ticker].dropna(how='all')
+                elif not is_multi:
+                    ticker_df = df.dropna(how='all')
+                else:
+                    continue
+                
+                if ticker_df.empty or len(ticker_df) < 1:
+                    continue
+                
+                latest = ticker_df.iloc[-1]
+                prev = ticker_df.iloc[-2] if len(ticker_df) > 1 else latest
+                
+                price = latest['Close']
+                prev_price = prev['Close']
+                
+                import math
+                if price is None or (isinstance(price, float) and math.isnan(price)):
+                    log(f"  ⚠️ {ticker}: 价格为 NaN，跳过")
+                    continue
+                
+                change = price - prev_price
+                change_pct = (change / prev_price * 100) if prev_price != 0 else 0
+                
+                # 确定数据源名称
+                source_name = ticker_to_source.get(ticker, 'yfinance_prices_merged')
+                
+                # 确定 category
+                if 'indices' in source_name:
+                    category = 'market'
+                elif 'risk' in source_name:
+                    category = 'risk'
+                elif 'fx' in source_name:
+                    category = 'forex'
+                elif 'gold' in source_name or 'oil' in source_name:
+                    category = 'commodity'
+                elif 'china' in source_name:
+                    category = 'china'
+                else:
+                    category = 'market'
+                
+                title = f"{ticker}: ${price:.2f} ({change_pct:+.2f}%)"
+                
+                item = DataItem(
+                    id=DataItem.generate_id('yfinance_prices_merged', ticker, str(ticker_df.index[-1])),
+                    source=source_name,  # 保留原始数据源名称，方便后续提取
+                    category=category,
+                    title=title,
+                    content=f"收盘价: ${price:.2f}\n涨跌: ${change:+.2f} ({change_pct:+.2f}%)",
+                    url=f"https://finance.yahoo.com/quote/{ticker}",
+                    published=ticker_df.index[-1].to_pydatetime() if hasattr(ticker_df.index[-1], 'to_pydatetime') else datetime.now(),
+                    metadata={
+                        'ticker': ticker,
+                        'price': float(price),
+                        'change': float(change),
+                        'change_pct': float(change_pct),
+                        'volume': int(latest['Volume']) if not math.isnan(latest['Volume']) else 0,
+                    }
+                )
+                
+                if source_name not in items_by_source:
+                    items_by_source[source_name] = []
+                items_by_source[source_name].append(item)
+                
+            except Exception as e:
+                log(f"  ⚠️ 解析 {ticker} 数据失败: {e}")
+                continue
+        
+        # 创建合并的 DataSourceResult
+        all_items = []
+        for items in items_by_source.values():
+            all_items.extend(items)
+        
+        result = DataSourceResult(
+            source_name='yfinance_prices_merged',
+            source_type='yfinance',
+            category='market',
+            status='success' if len(all_items) >= 10 else 'degraded',
+            items=all_items,
+            validation=ValidationResult(is_valid=len(all_items) >= 10, score=len(all_items) * 10)
+        )
+        
+        # 保存缓存
+        try:
+            import pickle
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(cache_file, 'wb') as f:
+                pickle.dump({'time': datetime.now(), 'result': result}, f)
+        except Exception as e:
+            log(f"  ⚠️ 保存缓存失败: {e}")
+        
+        log(f"  ✓ 成功获取 {len(all_items)} 个价格数据")
+        return result
 
     def collect_rss_only(self, use_cache: bool = True, timeout: int = 30, concurrency: int = 4) -> Dict:
         """只收集 RSS/NewsAPI 数据（跳过 YFinance，避免限速）"""
@@ -935,6 +1317,16 @@ class MacroInfoCollector:
                     lines.append(f"     链接：{url}")
                 lines.append("")
 
+        # 数据源状态
+        failed_sources = self.summary.get('_failed_sources', [])
+        if failed_sources:
+            lines.append("⚠️ 【数据源状态】")
+            lines.append("─" * 40)
+            lines.append(f"  以下 {len(failed_sources)} 个数据源获取失败（已重试）：")
+            for source in failed_sources:
+                lines.append(f"    ❌ {source}")
+            lines.append("")
+
         # 免责声明
         lines.extend([
             "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓",
@@ -1048,6 +1440,12 @@ class MacroInfoCollector:
             blocks.append({"type": "text", "text": "\n".join(news_lines)})
             blocks.append({"type": "divider"})
 
+        # 数据源状态
+        failed_sources = s.get('_failed_sources', [])
+        if failed_sources:
+            blocks.append({"type": "text", "text": f"⚠️ **数据源状态**\n以下 {len(failed_sources)} 个数据源获取失败（已重试）：\n" + "\n".join(f"  ❌ {src}" for src in failed_sources)})
+            blocks.append({"type": "divider"})
+
         # 免责声明
         blocks.append({"type": "context", "text": "🤖 家庭理财助手 | 数据来源: DataHub | 仅供参考，不构成投资建议"})
 
@@ -1095,15 +1493,63 @@ def main():
 
     collector = MacroInfoCollector()
 
+    # 硬超时保护：使用 watchdog 线程强制退出
+    # yfinance 被限流时在 socket 层挂死，SIGALRM 无法中断 C 级 socket 调用
+    HARD_TIMEOUT = 540  # 秒（9分钟，cron 超时 10 分钟，留 1 分钟余量给输出和翻译）
+
+    def _watchdog(timeout_sec, collector_ref, args_ref):
+        """Watchdog 线程：超时后强制输出已有数据并退出"""
+        import time
+        time.sleep(timeout_sec)
+        # 超时了，强制输出
+        sys.stderr.write(f"\n⏰ 硬超时({timeout_sec}s)！强制输出已有数据...\n")
+        if collector_ref.failed_sources:
+            sys.stderr.write(f"   失败源: {', '.join(collector_ref.failed_sources)}\n")
+        sys.stderr.flush()
+        try:
+            # 整理已有数据
+            if not collector_ref.summary:
+                collector_ref.summary = collector_ref._generate_summary()
+            # 添加失败信息到摘要
+            if collector_ref.failed_sources:
+                collector_ref.summary['_failed_sources'] = collector_ref.failed_sources.copy()
+            if args_ref.card:
+                print(collector_ref.format_card())
+            elif args_ref.summary:
+                print(collector_ref.format_report())
+            else:
+                print(json.dumps(collector_ref.summary, indent=2, ensure_ascii=False))
+        except Exception as e:
+            error_msg = f"⚠️ 数据收集超时"
+            if collector_ref.failed_sources:
+                error_msg += f"，失败源: {', '.join(collector_ref.failed_sources)}"
+            print(json.dumps({"blocks": [{"type": "text", "text": error_msg}]}, ensure_ascii=False))
+        os._exit(1)
+
+    # 启动 watchdog 线程
+    watchdog_thread = threading.Thread(
+        target=_watchdog,
+        args=(HARD_TIMEOUT, collector, args),
+        daemon=True
+    )
+    watchdog_thread.start()
+
     # 收集数据
-    if args.yfinance_only:
-        log("仅获取 YFinance 数据（跳过 RSS）...")
-        collector.collect_yfinance_only(use_cache=not args.no_cache)
-    elif args.no_yfinance:
-        log("跳过 YFinance 数据（只获取 RSS/NewsAPI）...")
-        collector.collect_rss_only(use_cache=not args.no_cache, timeout=args.timeout, concurrency=args.concurrency)
-    else:
-        collector.collect_all(use_cache=not args.no_cache, timeout=args.timeout, concurrency=args.concurrency)
+    try:
+        if args.yfinance_only:
+            log("仅获取 YFinance 数据（跳过 RSS）...")
+            collector.collect_yfinance_only(use_cache=not args.no_cache)
+        elif args.no_yfinance:
+            log("跳过 YFinance 数据（只获取 RSS/NewsAPI）...")
+            collector.collect_rss_only(use_cache=not args.no_cache, timeout=args.timeout, concurrency=args.concurrency)
+        else:
+            collector.collect_all(use_cache=not args.no_cache, timeout=args.timeout, concurrency=args.concurrency)
+    except Exception as e:
+        log(f"⚠️ 数据收集异常: {e}")
+
+    # 取消超时
+    if hasattr(signal, 'SIGALRM'):
+        signal.alarm(0)
 
     # 输出到 stdout
     if args.card:

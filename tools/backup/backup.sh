@@ -26,15 +26,20 @@ log_error() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env.nas"
 
-# 默认 NAS 备份目录（如果 .env.nas 不存在）
-NAS_BACKUP_DIR="/Volumes/home/family-finance-backup"
+# 默认 NAS 备份目录（backup.sh 与 restore.sh 保持一致）
+DEFAULT_NAS_BACKUP_DIR="/Volumes/home/family-finance-backup"
 
 if [ -f "$ENV_FILE" ]; then
     source "$ENV_FILE"
     log_info "已加载配置文件: $ENV_FILE"
 else
-    log_info "配置文件不存在，使用默认 NAS 路径: $NAS_BACKUP_DIR"
+    log_warn "配置文件不存在: $ENV_FILE"
+    log_warn "请复制 $SCRIPT_DIR/.env.nas.example 为 .env.nas 并填写配置"
+    log_warn "本次将使用默认 NAS 路径: $DEFAULT_NAS_BACKUP_DIR"
 fi
+
+# 若 .env.nas 未提供 NAS_BACKUP_DIR，回退到统一默认值
+NAS_BACKUP_DIR="${NAS_BACKUP_DIR:-$DEFAULT_NAS_BACKUP_DIR}"
 
 # 验证配置
 if [ -z "$NAS_BACKUP_DIR" ]; then
@@ -125,6 +130,11 @@ ls -lh "$TEMP_DIR"/* >> "$MANIFEST_FILE"
 
 cat >> "$MANIFEST_FILE" << EOF
 
+校验: 见 SHA256SUMS.txt（恢复前用 shasum -a 256 -c 验证）
+EOF
+
+cat >> "$MANIFEST_FILE" << EOF
+
 系统信息:
 - macOS 版本: $(sw_vers -productVersion)
 - Docker 版本: $(docker --version)
@@ -136,6 +146,23 @@ cat >> "$MANIFEST_FILE" << EOF
 3. MEMORY.md: cp MEMORY_${TIMESTAMP}.md ~/.openclaw/workspace/MEMORY.md
 4. OpenClaw 配置: cp openclaw_config_${TIMESTAMP}.json ~/.openclaw/openclaw.json
 EOF
+
+# 4.5 生成 SHA256 校验和（覆盖所有备份产物，恢复时据此验证完整性）
+log_info "生成 SHA256 校验和..."
+CHECKSUM_FILE="$TEMP_DIR/SHA256SUMS.txt"
+(
+    cd "$TEMP_DIR" || exit 1
+    # 对除校验文件本身外的所有文件生成校验和（仅文件名，便于异机校验）
+    find . -maxdepth 1 -type f ! -name "SHA256SUMS.txt" -exec basename {} \; \
+        | sort \
+        | xargs shasum -a 256 > "$CHECKSUM_FILE"
+)
+if [ -s "$CHECKSUM_FILE" ]; then
+    log_info "校验和已生成: $(wc -l < "$CHECKSUM_FILE" | tr -d ' ') 个文件"
+else
+    log_error "校验和生成失败"
+    exit 1
+fi
 
 # 5. 创建 NAS 备份目录
 NAS_BACKUP_PATH="$NAS_BACKUP_DIR/backup_${TIMESTAMP}"
@@ -154,13 +181,26 @@ fi
 # 6. 验证备份
 log_info "验证备份完整性..."
 VERIFY_FILE="$NAS_BACKUP_PATH/.verified"
-if [ -f "$NAS_BACKUP_PATH/manifest_${TIMESTAMP}.txt" ] && [ -f "$NAS_BACKUP_PATH/maybe_production_${TIMESTAMP}.sql" ]; then
-    touch "$VERIFY_FILE"
-    log_info "备份验证通过"
-else
+if [ ! -f "$NAS_BACKUP_PATH/manifest_${TIMESTAMP}.txt" ] || [ ! -f "$NAS_BACKUP_PATH/maybe_production_${TIMESTAMP}.sql" ]; then
     log_error "备份验证失败：缺少关键文件"
     exit 1
 fi
+
+# 用 SHA256 校验和验证 NAS 上的副本未损坏
+if [ -f "$NAS_BACKUP_PATH/SHA256SUMS.txt" ]; then
+    if ( cd "$NAS_BACKUP_PATH" && shasum -a 256 -c SHA256SUMS.txt >/dev/null 2>&1 ); then
+        log_info "SHA256 校验通过"
+    else
+        log_error "备份验证失败：SHA256 校验和不匹配，NAS 副本可能已损坏"
+        exit 1
+    fi
+else
+    log_error "备份验证失败：缺少 SHA256SUMS.txt"
+    exit 1
+fi
+
+touch "$VERIFY_FILE"
+log_info "备份验证通过"
 
 # 9. 输出备份摘要
 log_info "========================================="

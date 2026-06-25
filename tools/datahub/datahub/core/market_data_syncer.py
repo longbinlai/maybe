@@ -7,8 +7,31 @@
 
 import yfinance as yf
 from datetime import date, datetime
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 from .maybe_db_writer import MaybeDBWriter
+
+
+# 汇率方向/量级合理性区间（宽松 sanity 区间，不做精确拟合）。
+# key 为 (from_currency, to_currency)，value 为 (min_rate, max_rate)。
+# 目的：API 返回反向汇率或异常值时拒绝写入，避免污染 exchange_rates 表。
+# 例如 USD->CNY 约 6-8，若 yf 误返回 ~0.14（CNY->USD）会被拦截。
+_FX_SANITY_RANGES: Dict[Tuple[str, str], Tuple[float, float]] = {
+    ("USD", "CNY"): (4.0, 12.0),
+    ("USD", "JPY"): (80.0, 250.0),
+    ("USD", "AUD"): (0.8, 2.5),
+    ("EUR", "USD"): (0.7, 1.7),
+}
+
+
+def _fx_rate_is_sane(from_currency: str, to_currency: str, rate: float) -> bool:
+    """校验汇率落在已知合理区间内。无定义区间的对默认通过（只做正数校验）。"""
+    if rate is None or rate <= 0:
+        return False
+    bounds = _FX_SANITY_RANGES.get((from_currency, to_currency))
+    if bounds is None:
+        return True
+    low, high = bounds
+    return low <= rate <= high
 
 
 class MarketDataSyncer:
@@ -189,10 +212,19 @@ class MarketDataSyncer:
                     close_rate = row["Close"]
                     if not isinstance(close_rate, (int, float)):
                         continue
+                    rate_val = float(close_rate)
+                    # 方向/量级合理性校验：拒绝明显反向或异常的汇率，
+                    # 避免 API 异常时写入错误数据。
+                    if not _fx_rate_is_sane(from_currency, to_currency, rate_val):
+                        result["skipped"].append({
+                            "pair": f"{from_currency}/{to_currency}",
+                            "reason": f"rate {rate_val} out of sanity range",
+                        })
+                        continue
                     rates.append({
                         "from_currency": from_currency,
                         "to_currency": to_currency,
-                        "rate": float(close_rate),
+                        "rate": rate_val,
                         "date": idx.date() if hasattr(idx, 'date') else today
                     })
 

@@ -2,6 +2,12 @@
 
 解析 memory/ 目录下的 Markdown 文件，提取结构化的投资决策、市场事件和回顾记录，
 迁移到 Mem0 向量存储中。
+
+⚠️ 遗留工具：markdown → migrate 是**一次性的手动迁移工具**，仅用于把历史的
+   memory/*.md 文件搬进 Mem0。常规捕获已改为「决策时捕获 + 周度复盘」：
+   - 决策时捕获：由 finance-write 的 `--reason` 触发，直接写入 Mem0。
+   - 周度/月度复盘：由 `memory review --weekly/--monthly` 生成。
+   不要再依赖「OpenClaw 写每日 markdown → migrate」这条链路（已废弃）。
 """
 
 import re
@@ -145,7 +151,7 @@ class MarkdownMigrator:
             # 提取字段
             fields = self._extract_fields(body)
 
-            # 判断分类：如果包含决策关键词则为 investment_decision，否则为 market_event
+            # 判断分类：含决策关键词→investment_decision，否则→market_view（不再产出已废弃的 market_event）
             category = self._classify_entry(title, fields)
 
             # 构建内容
@@ -243,9 +249,12 @@ class MarkdownMigrator:
         return fields
 
     def _classify_entry(self, title: str, fields: dict) -> str:
-        """Classify an entry as investment_decision or market_event.
+        """Classify an entry into a VALID active category.
 
         基于标题和字段中的关键词判断分类。
+        绝不产出已废弃分类（如 market_event）——含决策关键词的归为
+        investment_decision，其余的客观/市场类条目映射到 market_view
+        （主观市场看法），而非已废弃的 market_event。
         """
         combined = f"{title} {' '.join(fields.keys())} {' '.join(fields.values())}".lower()
 
@@ -253,7 +262,9 @@ class MarkdownMigrator:
             if keyword.lower() in combined:
                 return "investment_decision"
 
-        return "market_event"
+        # 历史上这里返回 market_event（已废弃）。现映射到有效分类 market_view，
+        # 避免脏分类污染向量库。validate_category() 会再做一次兜底校验。
+        return "market_view"
 
     def _build_content(self, title: str, fields: dict, body: str) -> str:
         """Build a natural-language content string for Mem0.

@@ -2,6 +2,7 @@
 import json
 import os
 import sys
+from pathlib import Path
 
 import click
 
@@ -67,6 +68,90 @@ def _confirm_or_abort(message: str, yes: bool, as_json: bool, error_key: str):
     if not click.confirm("Proceed anyway?"):
         click.echo("Aborted.", err=True)
         sys.exit(1)
+
+
+# ── Write-path safety: audit log, dry-run, decision capture ──────────────
+
+AUDIT_PATH = Path.home() / ".config" / "maybe-finance" / "audit" / "writes.jsonl"
+
+
+def _audit(command: str, action: str, *, account=None, details=None,
+           result=None, status="ok"):
+    """Append one JSON line per write to an append-only audit log.
+
+    Records who/when/what so silent or wrong writes are traceable later.
+    Never raises — auditing must not break a financial write.
+    """
+    try:
+        from datetime import datetime
+        AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        rec = {
+            "ts": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "command": command,
+            "action": action,
+            "status": status,
+            "account": account,
+            "details": details or {},
+            "result": result or {},
+        }
+        with open(AUDIT_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False, default=str) + "\n")
+    except Exception:
+        pass
+
+
+def _dry_run_preview(command: str, details: dict, as_json: bool):
+    """Print the intended write without performing it."""
+    if as_json:
+        click.echo(json.dumps(
+            {"dry_run": True, "command": command, "would_write": details},
+            indent=2, ensure_ascii=False, default=str))
+    else:
+        click.echo("🌵 DRY RUN — no write performed")
+        click.echo(f"   Command: {command}")
+        for k, v in details.items():
+            click.echo(f"   {k}: {v}")
+
+
+def _capture_decision(reason, confidence, *, action, account=None, ticker=None,
+                      amount=None, date=None):
+    """Best-effort: record the WHY of an investment decision into Mem0.
+
+    Content = the subjective reason; objective links go in metadata (per the
+    golden rule, objective numbers live in Maybe, not Mem0). Never fails the
+    financial write — memory capture is strictly secondary.
+    """
+    if not reason:
+        return
+    import shutil
+    import subprocess
+    memory_bin = shutil.which("memory") or os.path.expanduser("~/pyenv/maybe/bin/memory")
+    if not (shutil.which("memory") or os.path.exists(memory_bin)):
+        click.echo("⚠️  'memory' CLI not found; decision reason not recorded to Mem0", err=True)
+        return
+    meta = [f"action={action}"]
+    if account:
+        meta.append(f"account={account}")
+    if ticker:
+        meta.append(f"ticker={ticker}")
+    if amount is not None:
+        meta.append(f"amount={amount}")
+    if date:
+        meta.append(f"date={date}")
+    if confidence is not None:
+        meta.append(f"confidence={confidence}")
+    cmd = [memory_bin, "add", "-c", "investment_decision", "--content", reason]
+    for m in meta:
+        cmd += ["-m", m]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if r.returncode == 0:
+            click.echo("🧠 Decision reason recorded to Mem0 (investment_decision)")
+        else:
+            click.echo(f"⚠️  Memory capture failed (write still succeeded): "
+                       f"{r.stderr.strip()[:200]}", err=True)
+    except Exception as e:
+        click.echo(f"⚠️  Memory capture error (write still succeeded): {e}", err=True)
 
 
 # ── CLI group ───────────────────────────────────────────────────────────
@@ -358,7 +443,8 @@ def snapshot(api_key, url, as_json):
 @click.option("--date", default=None, help="Valuation date (YYYY-MM-DD, defaults to today)")
 @click.option("--yes", "-y", is_flag=True,
               help="Skip safety confirmation (same-date transaction conflict)")
-def reconcile(api_key, url, as_json, account_name, balance, date, yes):
+@click.option("--dry-run", is_flag=True, help="Preview the write without performing it")
+def reconcile(api_key, url, as_json, account_name, balance, date, yes, dry_run):
     """Quick reconciliation — update an account's balance.
 
     This is the primary command for periodic balance updates.
@@ -403,6 +489,13 @@ def reconcile(api_key, url, as_json, account_name, balance, date, yes):
     old_balance = _float(match["balance"])
     delta = balance - old_balance
 
+    details = {"account": match["name"], "old_balance": old_balance,
+               "new_balance": balance, "delta": delta, "date": guard_date}
+    if dry_run:
+        _dry_run_preview("reconcile", details, as_json)
+        c.close()
+        return
+
     if not as_json:
         click.echo(f"Account:  {match['name']} ({match['account_type']})")
         click.echo(f"Old:      {match['balance_formatted']}")
@@ -411,7 +504,16 @@ def reconcile(api_key, url, as_json, account_name, balance, date, yes):
         click.echo(f"Change:   {direction} {_fmt_num(abs(delta))}")
         click.echo()
 
-    result = c.reconcile(match["id"], balance, date=date)
+    try:
+        result = c.reconcile(match["id"], balance, date=date)
+        _audit("reconcile", "reconcile", account=match["name"], details=details,
+               result={"id": result.get("id") if isinstance(result, dict) else None})
+    except Exception as e:
+        _audit("reconcile", "reconcile", account=match["name"], details=details,
+               status="error", result={"error": str(e)})
+        click.echo(f"Error: {e}", err=True)
+        c.close()
+        raise SystemExit(1)
     c.close()
 
     if as_json:
@@ -505,8 +607,14 @@ def reconcile_all(api_key, url, as_json):
               help="Transaction nature (income/expense)")
 @click.option("--yes", "-y", is_flag=True,
               help="Skip safety confirmations (cross-currency / same-date valuation)")
+@click.option("--dry-run", is_flag=True, help="Preview the write without performing it")
+@click.option("--reason", default=None,
+              help="Why this entry — recorded to Mem0 as an investment_decision")
+@click.option("--confidence", type=int, default=None,
+              help="Confidence 1-10 (stored with the decision reason)")
 def add_transaction(api_key, url, as_json, account, date, amount, name,
-                   description, notes, currency, category, merchant, tags, nature, yes):
+                   description, notes, currency, category, merchant, tags, nature,
+                   yes, dry_run, reason, confidence):
     """Add a new transaction with optional tags."""
     c = _client(api_key, url)
 
@@ -582,6 +690,13 @@ def add_transaction(api_key, url, as_json, account, date, amount, name,
                 click.echo(f"⚠️  Tag not found: {tag_name}, skipping", err=True)
     
     # 5. Create transaction
+    details = {"account": matched_acc["name"], "date": date, "amount": amount,
+               "currency": currency, "name": name, "nature": nature}
+    if dry_run:
+        _dry_run_preview("add-transaction", details, as_json)
+        c.close()
+        return
+
     try:
         result = c.create_transaction(
             account_id=matched_acc["id"],
@@ -596,7 +711,9 @@ def add_transaction(api_key, url, as_json, account, date, amount, name,
             tag_ids=tag_ids if tag_ids else None,
             nature=nature
         )
-        
+        _audit("add-transaction", "create_transaction", account=matched_acc["name"],
+               details=details, result={"id": result.get("id") if isinstance(result, dict) else None})
+
         if as_json:
             _output(result, True)
         else:
@@ -613,6 +730,8 @@ def add_transaction(api_key, url, as_json, account, date, amount, name,
             if nature:
                 click.echo(f"   Nature: {nature}")
     except Exception as e:
+        _audit("add-transaction", "create_transaction", account=matched_acc["name"],
+               details=details, status="error", result={"error": str(e)})
         if as_json:
             _output({"error": str(e)}, True)
         else:
@@ -620,6 +739,10 @@ def add_transaction(api_key, url, as_json, account, date, amount, name,
         sys.exit(1)
     finally:
         c.close()
+
+    # Best-effort: record the WHY into Mem0 (after the financial write succeeds)
+    _capture_decision(reason, confidence, action="transaction",
+                      account=matched_acc["name"], amount=amount, date=date)
 
 
 # ── categories ──────────────────────────────────────────────────────────
@@ -708,7 +831,12 @@ def holding_group():
 @click.option("--avg-cost", type=float, default=None, help="Average cost basis per share")
 @click.option("--date", default=None, help="Holding date (YYYY-MM-DD)")
 @click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
-def holding_add(api_key, url, account_name, ticker, qty, price, avg_cost, date, as_json):
+@click.option("--dry-run", is_flag=True, help="Preview the write without performing it")
+@click.option("--reason", default=None,
+              help="Why this buy — recorded to Mem0 as an investment_decision")
+@click.option("--confidence", type=int, default=None, help="Confidence 1-10")
+def holding_add(api_key, url, account_name, ticker, qty, price, avg_cost, date, as_json,
+                dry_run, reason, confidence):
     """Buy shares in an investment account.
 
     Cash decreases by (qty × price), total balance stays the same.
@@ -726,16 +854,30 @@ def holding_add(api_key, url, account_name, ticker, qty, price, avg_cost, date, 
         c.close()
         raise SystemExit(1)
 
+    details = {"account": match["name"], "ticker": ticker, "qty": qty,
+               "price": price, "avg_cost": avg_cost, "date": date}
+    if dry_run:
+        _dry_run_preview("holding add", details, as_json)
+        c.close()
+        return
+
     try:
         result = c.create_holding(
             account_id=match["id"], ticker=ticker, qty=qty,
             price=price, avg_cost=avg_cost, date=date
         )
+        _audit("holding add", "create_holding", account=match["name"], details=details,
+               result={"action": result.get("action") if isinstance(result, dict) else None})
         c.close()
     except Exception as e:
+        _audit("holding add", "create_holding", account=match["name"], details=details,
+               status="error", result={"error": str(e)})
         click.echo(f"Error: {e}", err=True)
         c.close()
         raise SystemExit(1)
+
+    _capture_decision(reason, confidence, action="buy", account=match["name"],
+                      ticker=ticker, amount=qty, date=date)
 
     if as_json:
         click.echo(json.dumps(result, indent=2, default=str))
@@ -767,7 +909,12 @@ def holding_add(api_key, url, account_name, ticker, qty, price, avg_cost, date, 
 @click.option("--qty", type=float, default=None, help="New quantity (buy more or sell some)")
 @click.option("--price", type=float, default=None, help="New price per share")
 @click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
-def holding_update(api_key, url, account_name, ticker, qty, price, as_json):
+@click.option("--dry-run", is_flag=True, help="Preview the write without performing it")
+@click.option("--reason", default=None,
+              help="Why this adjustment — recorded to Mem0 as an investment_decision")
+@click.option("--confidence", type=int, default=None, help="Confidence 1-10")
+def holding_update(api_key, url, account_name, ticker, qty, price, as_json,
+                   dry_run, reason, confidence):
     """Update position: change quantity (buy more/sell some) or update price.
 
     - Increasing qty: cash decreases (buying more)
@@ -800,15 +947,28 @@ def holding_update(api_key, url, account_name, ticker, qty, price, as_json):
         c.close()
         raise SystemExit(1)
 
+    details = {"account": match["name"], "ticker": ticker, "qty": qty, "price": price}
+    if dry_run:
+        _dry_run_preview("holding update", details, as_json)
+        c.close()
+        return
+
     try:
         result = c.update_holding(
             holding_id=target["id"], qty=qty, price=price
         )
+        _audit("holding update", "update_holding", account=match["name"], details=details,
+               result={"action": result.get("action") if isinstance(result, dict) else None})
         c.close()
     except Exception as e:
+        _audit("holding update", "update_holding", account=match["name"], details=details,
+               status="error", result={"error": str(e)})
         click.echo(f"Error: {e}", err=True)
         c.close()
         raise SystemExit(1)
+
+    _capture_decision(reason, confidence, action="adjust", account=match["name"],
+                      ticker=ticker, amount=qty, date=None)
 
     if as_json:
         click.echo(json.dumps(result, indent=2, default=str))
@@ -846,7 +1006,12 @@ def holding_update(api_key, url, account_name, ticker, qty, price, as_json):
 @click.option("--qty", type=float, default=None, help="Shares to sell (omit to sell all)")
 @click.option("--price", type=float, default=None, help="Sale price per share")
 @click.option("--json", "as_json", is_flag=True, help="Output raw JSON")
-def holding_sell(api_key, url, account_name, ticker, qty, price, as_json):
+@click.option("--dry-run", is_flag=True, help="Preview the write without performing it")
+@click.option("--reason", default=None,
+              help="Why this sell — recorded to Mem0 as an investment_decision")
+@click.option("--confidence", type=int, default=None, help="Confidence 1-10")
+def holding_sell(api_key, url, account_name, ticker, qty, price, as_json,
+                 dry_run, reason, confidence):
     """Sell shares. Cash increases, holdings decrease.
 
     - If --qty omitted: sell all shares (delete the holding)
@@ -882,12 +1047,22 @@ def holding_sell(api_key, url, account_name, ticker, qty, price, as_json):
     current_price = _float(target.get("price", 0))
     sale_price = price if price else current_price
 
+    details = {"account": match["name"], "ticker": ticker,
+               "qty": "all" if qty is None else qty, "price": sale_price}
+    if dry_run:
+        _dry_run_preview("holding sell", details, as_json)
+        c.close()
+        return
+
     if qty is None:
         # Sell all → delete
         try:
             result = c.delete_holding(target["id"])
+            _audit("holding sell", "delete_holding", account=match["name"], details=details)
             c.close()
         except Exception as e:
+            _audit("holding sell", "delete_holding", account=match["name"], details=details,
+                   status="error", result={"error": str(e)})
             click.echo(f"Error: {e}", err=True)
             c.close()
             raise SystemExit(1)
@@ -910,8 +1085,11 @@ def holding_sell(api_key, url, account_name, ticker, qty, price, as_json):
             result = c.update_holding(
                 holding_id=target["id"], qty=new_qty, price=sale_price
             )
+            _audit("holding sell", "update_holding", account=match["name"], details=details)
             c.close()
         except Exception as e:
+            _audit("holding sell", "update_holding", account=match["name"], details=details,
+                   status="error", result={"error": str(e)})
             click.echo(f"Error: {e}", err=True)
             c.close()
             raise SystemExit(1)
@@ -932,6 +1110,9 @@ def holding_sell(api_key, url, account_name, ticker, qty, price, as_json):
             click.echo(f"   Total:   {_fmt_num(acct.get('total_balance'))} {acct.get('currency', '')}")
             click.echo(f"   Stocks:  {_fmt_num(acct.get('holdings_value'))} {acct.get('currency', '')}")
             click.echo(f"   Cash:    {_fmt_num(acct.get('cash'))} {acct.get('currency', '')}")
+
+    _capture_decision(reason, confidence, action="sell", account=match["name"],
+                      ticker=ticker, amount=qty, date=None)
 
 
 @holding_group.command("delete")
@@ -1127,6 +1308,42 @@ def daily_sync(api_key, url, as_json, dry_run):
         if rate_results["errors"]:
             for e in rate_results["errors"]:
                 click.echo(f"  ❌ {e.get('pair', '?')}: {e.get('error', 'unknown')}")
+
+
+# ── audit ───────────────────────────────────────────────────────────────
+
+@main.command("audit")
+@click.option("--limit", "-n", default=20, type=int, help="Show last N entries (default 20)")
+@click.option("--json", "as_json", is_flag=True, help="Output raw JSON lines")
+def audit(limit, as_json):
+    """Show the write audit log (every reconcile/transaction/holding write).
+
+    Append-only log at ~/.config/maybe-finance/audit/writes.jsonl
+    """
+    if not AUDIT_PATH.exists():
+        click.echo(f"No audit log yet ({AUDIT_PATH}).")
+        return
+
+    lines = AUDIT_PATH.read_text(encoding="utf-8").splitlines()
+    recent = lines[-limit:]
+
+    if as_json:
+        click.echo("\n".join(recent))
+        return
+
+    click.echo(f"Last {len(recent)} write(s) — {AUDIT_PATH}\n")
+    for line in recent:
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        status = r.get("status", "?")
+        mark = "✅" if status == "ok" else "❌"
+        d = r.get("details", {})
+        summary = ", ".join(f"{k}={v}" for k, v in d.items() if v is not None)
+        click.echo(f"{mark} {r.get('ts', '')}  {r.get('command', '')}")
+        if summary:
+            click.echo(f"     {summary}")
 
 
 if __name__ == "__main__":

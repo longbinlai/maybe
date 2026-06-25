@@ -69,24 +69,33 @@ memory delete <memory_id>
 
 # Statistics
 memory stats
+
+# Generate a weekly/monthly review skeleton (pulls objective deltas from Maybe)
+memory review --weekly            # or --monthly
+memory review --weekly --dry-run  # preview without writing
 ```
 
 ## Workflows
 
 ### Record Investment Decision
 
-When user describes a buy/sell decision, capture the reasoning:
+**Preferred — capture at decision time via `finance-write`:** pass `--reason`/`--confidence`
+to the write command; on success it auto-records an `investment_decision` memory linked to
+the objective action. One step, no drift:
 
 ```bash
-memory add \
-  -c investment_decision \
-  --content "<why: reasoning, market context, expected outcome, confidence>" \
-  -m security=<TICKER> \
-  -m direction=<buy|sell> \
-  -m confidence=<1-10>
+maybe holding add --account <acct> --ticker AAPL --qty 100 --price 150 \
+  --reason "AI business strong, expect +15% in 90d" --confidence 7
+# also works on: holding sell / holding update / add-transaction
 ```
 
-Then also record the transaction via `finance-write` skill (the actual buy/sell in Maybe).
+**Manual fallback** (when not tied to a write):
+
+```bash
+memory add -c investment_decision \
+  --content "<why: reasoning, market context, expected outcome>" \
+  -m ticker=<TICKER> -m action=<buy|sell> -m confidence=<1-10>
+```
 
 ### Weekly Review (Sunday 20:00)
 

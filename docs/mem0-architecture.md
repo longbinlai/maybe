@@ -124,13 +124,25 @@ Mem0 is for the wisdom that Maybe cannot capture:
 4. ✅ `tools/mem0-memory/cleanup_system_config.py` - Delete 6 system config memories
 5. ✅ `tools/mem0-memory/recategorize_memories.py` - Migrate allocation_strategy → investment_style
 
+## Capture Strategy (consolidated onto Mem0)
+
+Capture is consolidated into Mem0. The old "OpenClaw writes daily markdown → `memory migrate`"
+path is **not used** (that directory stayed empty); OpenClaw built-in memory is now just
+conversation context, not a feed into Mem0. Two capture paths:
+
+1. **At decision time** (primary): `finance-write` commands take `--reason`/`--confidence`;
+   on a successful trade/holding write the WHY is auto-recorded as `investment_decision`.
+2. **Weekly/monthly review**: `memory review --weekly|--monthly` pulls objective deltas from
+   Maybe (trade count, net worth) and writes a `weekly_review`/`monthly_review` skeleton to
+   fill in. Schedule via cron.
+
+`memory migrate` remains a legacy one-off tool only.
+
 ## Next Steps
 
-1. **Add first investment decision**: Next time user buys/sells, record the reasoning in Mem0
-2. **Weekly review**: Set up cron job to generate weekly_review memories
-3. **Lesson extraction**: When user reflects on decisions, extract lessons
-4. **Family goals**: Ask user about long-term objectives and record them
-5. **Monthly review**: Set up cron job for monthly deep analysis
+1. **Schedule reviews**: put `memory review --weekly` on cron; remind to fill in the reflection
+2. **Lesson extraction**: when the user reflects on decisions, record `lesson_learned`
+3. **Family goals**: ask about long-term objectives and record them as `family_goal`
 
 ## Verification Commands
 

@@ -218,13 +218,26 @@ export QDRANT_PORT="6333"
 
 ---
 
+## 捕获策略（已收敛到 Mem0）
+
+记忆捕获**统一进入 Mem0**，不再依赖"OpenClaw 写每日 markdown → migrate"那条链路
+（该目录长期为空，未真正产出）。OpenClaw 内置 Memory 仅作**会话上下文/可审计日志**，
+不再假设它会自动喂给 Mem0。两种捕获方式：
+
+1. **决策时捕获**（主路径）：`finance-write` 的写入命令带 `--reason`/`--confidence`，
+   写入交易/持仓成功后自动把"为什么"记入 Mem0 的 `investment_decision`。
+   - 例：`maybe holding add --account 券商 --ticker AAPL --qty 100 --reason "AI 业务强劲" --confidence 7`
+2. **周度/月度复盘**：`memory review --weekly`（或 `--monthly`）从 Maybe 拉客观增量
+   （交易笔数、净资产）生成复盘骨架并写入 `weekly_review`/`monthly_review`，可挂 cron。
+
+> `memory migrate`（从 markdown 迁移）保留为**遗留的一次性手动工具**，常规捕获不再用它。
+
 ## 未来优化方向
 
-1. **记忆同步**: 考虑将 OpenClaw Memory 的重要内容自动同步到 Mem0
-2. **记忆清理**: 定期清理过期的 OpenClaw Memory 文件
-3. **记忆分类**: 扩展 Mem0 的 category 系统，支持更细粒度的分类
-4. **记忆可视化**: 创建 Web UI 查看和搜索记忆
-5. **记忆导出**: 支持将记忆导出为 Markdown 或 JSON 格式
+1. **复盘自动化**: 将 `memory review --weekly` 挂上 cron，并在生成后提醒补全反思
+2. **记忆清理**: 定期清理过期/低价值记忆
+3. **记忆可视化**: 创建 Web UI 查看和搜索记忆
+4. **记忆导出**: 支持将记忆导出为 Markdown 或 JSON 格式
 
 ---
 

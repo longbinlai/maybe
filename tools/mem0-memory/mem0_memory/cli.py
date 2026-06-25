@@ -4,12 +4,63 @@
 """
 
 import json
+import os
+import shutil
+import subprocess
 import sys
+from datetime import date, timedelta
 
 import click
 
 from .client import Mem0Client, validate_category
 from .migrator import MarkdownMigrator
+
+
+# ── maybe CLI 调用辅助 ────────────────────────────────────────────────────
+
+_MAYBE_TIMEOUT = 30  # subprocess 超时（秒）
+
+
+def _find_maybe() -> str | None:
+    """定位 maybe 二进制：先 PATH，回退 ~/pyenv/maybe/bin/maybe。"""
+    found = shutil.which("maybe")
+    if found:
+        return found
+    fallback = os.path.expanduser("~/pyenv/maybe/bin/maybe")
+    if os.path.exists(fallback):
+        return fallback
+    return None
+
+
+def _run_maybe_json(maybe_bin: str, args: list[str]) -> dict | None:
+    """运行 `maybe <args> --json` 并解析 JSON，失败时优雅返回 None。"""
+    try:
+        proc = subprocess.run(
+            [maybe_bin, *args, "--json"],
+            capture_output=True,
+            text=True,
+            timeout=_MAYBE_TIMEOUT,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        click.echo(f"Warning: failed to run `maybe {' '.join(args)}`: {e}", err=True)
+        return None
+
+    if proc.returncode != 0:
+        err = (proc.stderr or proc.stdout or "").strip()
+        click.echo(
+            f"Warning: `maybe {' '.join(args)}` exited {proc.returncode}: {err}",
+            err=True,
+        )
+        return None
+
+    try:
+        return json.loads(proc.stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        click.echo(
+            f"Warning: could not parse JSON from `maybe {' '.join(args)}`: {e}",
+            err=True,
+        )
+        return None
 
 
 # ── 共享选项 ─────────────────────────────────────────────────────────────
@@ -300,6 +351,144 @@ def stats(config_path):
     for cat in client.categories:
         marker = "+" if cat in by_category else "-"
         click.echo(f"  [{marker}] {cat}")
+
+
+# ── review ───────────────────────────────────────────────────────────────
+
+def _period_bounds(monthly: bool, today: date) -> tuple[date, date, str]:
+    """计算复盘周期的起止日期与 period 标识。
+
+    Returns:
+        (start_date, end_date, period_id)
+        - weekly: 本周一 ~ today，period 形如 2026-W26
+        - monthly: 本月初 ~ today，period 形如 2026-06
+    """
+    if monthly:
+        start = today.replace(day=1)
+        period = today.strftime("%Y-%m")
+    else:
+        # weekday(): Monday=0 ... Sunday=6
+        start = today - timedelta(days=today.weekday())
+        iso_year, iso_week, _ = today.isocalendar()
+        period = f"{iso_year}-W{iso_week:02d}"
+    return start, today, period
+
+
+def _build_review_content(
+    label: str,
+    period: str,
+    start: date,
+    end: date,
+    trades_count: int,
+    net_worth: float | None,
+    net_worth_formatted: str | None,
+) -> str:
+    """组装结构化的复盘 content（中文）：客观变动 + 待填写的反思提示。"""
+    nw_line = net_worth_formatted or (f"{net_worth}" if net_worth is not None else "（未取到，请手动补充）")
+    return (
+        f"# {label}复盘 {period}（{start.isoformat()} ~ {end.isoformat()}）\n"
+        f"\n"
+        f"## 本{ '月' if label == '月度' else '周' }客观变动（引用 Maybe 数据）\n"
+        f"- 交易笔数：{trades_count}\n"
+        f"- 当前净资产：{nw_line}\n"
+        f"\n"
+        f"## 决策回顾（待填写）\n"
+        f"- 本{ '月' if label == '月度' else '周' }做了哪些决策？理由是否成立？\n"
+        f"\n"
+        f"## 经验教训（待填写）\n"
+        f"- 哪些判断对了/错了？下次如何改进？\n"
+        f"\n"
+        f"## 下{ '月' if label == '月度' else '周' }计划（待填写）\n"
+        f"- 关注点 / 待执行的调整 / 风险提示。\n"
+    )
+
+
+@cli.command("review")
+@_config_opt
+@click.option("--weekly", "weekly_flag", is_flag=True, help="Generate a weekly review (default)")
+@click.option("--monthly", "monthly_flag", is_flag=True, help="Generate a monthly review")
+@click.option("--dry-run", is_flag=True, help="Print what would be written without saving")
+def review(config_path, weekly_flag, monthly_flag, dry_run):
+    """Generate a weekly/monthly review skeleton and store it in Mem0.
+
+    从 Maybe 拉取本周/本月的客观增量（交易笔数、净资产），组装一段含
+    「客观变动 + 待填写反思提示」的复盘记忆，写入 Mem0。
+
+    黄金法则：客观数字只作引用，复盘的价值在反思（决策回顾/教训/计划）。
+
+    Example:
+        memory review --weekly --dry-run
+        memory review --monthly
+    """
+    if weekly_flag and monthly_flag:
+        click.echo("Error: --weekly and --monthly are mutually exclusive.", err=True)
+        raise SystemExit(1)
+
+    monthly = monthly_flag  # 默认 weekly
+    category = "monthly_review" if monthly else "weekly_review"
+    label = "月度" if monthly else "周度"
+
+    today = date.today()
+    start, end, period = _period_bounds(monthly, today)
+
+    # ── 从 Maybe 拉客观增量（优雅降级）──────────────────────────────────
+    maybe_bin = _find_maybe()
+    trades_count = 0
+    net_worth = None
+    net_worth_formatted = None
+
+    if maybe_bin is None:
+        click.echo(
+            "Warning: `maybe` binary not found (checked PATH and ~/pyenv/maybe/bin/maybe). "
+            "Objective deltas will be empty; please fill in reflections manually.",
+            err=True,
+        )
+    else:
+        trades_data = _run_maybe_json(
+            maybe_bin,
+            ["trades", "--start-date", start.isoformat(), "--end-date", end.isoformat()],
+        )
+        if isinstance(trades_data, dict):
+            trades = trades_data.get("trades", [])
+            if isinstance(trades, list):
+                trades_count = len(trades)
+
+        snapshot_data = _run_maybe_json(maybe_bin, ["snapshot"])
+        if isinstance(snapshot_data, dict):
+            net_worth = snapshot_data.get("net_worth")
+            net_worth_formatted = snapshot_data.get("net_worth_formatted")
+
+    content = _build_review_content(
+        label, period, start, end, trades_count, net_worth, net_worth_formatted
+    )
+
+    metadata = {
+        "period": period,
+        "trades_count": trades_count,
+        "net_worth_change": net_worth,
+    }
+
+    if dry_run:
+        click.echo("=== DRY RUN — nothing will be written ===\n")
+        click.echo(f"Category: {category}")
+        click.echo(f"Period:   {period}")
+        click.echo(f"Metadata: {json.dumps(metadata, ensure_ascii=False, default=str)}")
+        click.echo("\nContent:")
+        click.echo(content)
+        return
+
+    client = _get_client(config_path)
+    result = client.add(content=content, category=category, metadata=metadata)
+
+    memories = result.get("results", result.get("memories", [])) if isinstance(result, dict) else []
+    mem_id = memories[0].get("id", "unknown") if isinstance(memories, list) and memories else "unknown"
+
+    click.echo(f"{label}复盘已写入 Mem0: {mem_id}")
+    click.echo(f"  Category: {category}")
+    click.echo(f"  Period:   {period}")
+    click.echo(f"  Trades:   {trades_count}")
+    click.echo(f"  Net worth: {net_worth_formatted or net_worth or 'N/A'}")
+    click.echo("\n提示：请补全 content 中「待填写」的决策回顾/经验教训/计划部分。")
 
 
 # ── entry point ──────────────────────────────────────────────────────────

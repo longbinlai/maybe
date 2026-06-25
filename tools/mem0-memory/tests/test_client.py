@@ -308,10 +308,11 @@ class TestMigration:
         # 应该有：2 条每日记录 + 1 条周度回顾 + 1 条月度回顾 = 4 条
         assert len(entries) == 4
 
-        # 验证分类
+        # 验证分类（market_event 已废弃，现映射到 market_view）
         categories = [e.category for e in entries]
         assert "investment_decision" in categories
-        assert "market_event" in categories
+        assert "market_view" in categories
+        assert "market_event" not in categories
         assert "weekly_review" in categories
         assert "monthly_review" in categories
 
@@ -367,10 +368,12 @@ class TestMigration:
         assert len(decisions) >= 1
         assert any("腾讯" in e.title for e in decisions)
 
-        # 美联储事件应被分类为 market_event
-        events = [e for e in entries if e.category == "market_event"]
+        # 美联储事件不再分类为已废弃的 market_event，而是有效的 market_view
+        events = [e for e in entries if e.category == "market_view"]
         assert len(events) >= 1
         assert any("美联储" in e.title for e in events)
+        # 确保不会产出已废弃分类
+        assert all(e.category != "market_event" for e in entries)
 
     def test_empty_directory(self, tmp_path):
         """测试空目录不报错。"""

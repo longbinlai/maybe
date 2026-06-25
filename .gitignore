@@ -108,6 +108,7 @@ tasks.json
 *.mcp.json
 scripts/
 !tools/openclaw-skills/macro-info-collector/scripts/
+!tools/openclaw-skills/finance-memory/scripts/
 .cursor/mcp.json
 .taskmasterconfig
 .windsurfrules
